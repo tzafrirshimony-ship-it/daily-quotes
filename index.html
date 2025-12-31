@@ -2,260 +2,308 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>הגרד היומי</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Mindset</title>
     
-    <!-- PWA Setup -->
+    <!-- PWA Settings -->
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#1e293b">
-    <link rel="manifest" href="data:application/manifest+json,{'name':'הגרד היומי','display':'standalone','background_color':'#1e293b','theme_color':'#1e293b','icons':[{'src':'https://cdn-icons-png.flaticon.com/512/2662/2662503.png','sizes':'512x512','type':'image/png'}]}">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2662/2662503.png">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="manifest" href="data:application/manifest+json,{'name':'Mindset','short_name':'Mindset','display':'standalone','background_color':'#ffffff','theme_color':'#ffffff','icons':[{'src':'https://cdn-icons-png.flaticon.com/512/3665/3665923.png','sizes':'512x512','type':'image/png'}]}">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3665/3665923.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;500;700;900&display=swap" rel="stylesheet">
     
     <style>
-        body { font-family: 'Rubik', sans-serif; background-color: #0f172a; color: white; overflow: hidden; }
+        body { font-family: 'Heebo', sans-serif; background-color: #f8fafc; overflow: hidden; }
         
-        .scratch-container {
+        /* הסתרת גלילה */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* אנימציות מעבר */
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        /* כרטיס מתהפך */
+        .perspective { perspective: 1000px; }
+        .flip-card-inner {
             position: relative;
-            width: 320px;
-            height: 320px;
-            margin: 0 auto;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .flipped .flip-card-inner { transform: rotateY(180deg); }
+        .flip-front, .flip-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
             border-radius: 1.5rem;
-            overflow: hidden;
-            box-shadow: 0 20px 50px -10px rgba(0,0,0,0.5);
         }
+        .flip-back { transform: rotateY(180deg); }
 
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 2;
-            cursor: pointer;
-            touch-action: none; /* חובה למובייל */
-        }
-
-        .hidden-content {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            padding: 2rem;
-            text-align: center;
-        }
-
-        .streak-flame { animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        /* ניווט פעיל */
+        .nav-item.active { color: #4f46e5; }
+        .nav-item.active svg { fill: rgba(79, 70, 229, 0.1); }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4">
+<body class="h-screen w-screen text-slate-800 select-none">
 
-    <!-- מונה הרצף -->
-    <div class="absolute top-6 w-full flex justify-center">
-        <div class="bg-slate-800/80 backdrop-blur border border-slate-700 rounded-full px-6 py-2 flex items-center gap-3 shadow-xl">
-            <span class="text-3xl streak-flame">🔥</span>
-            <div class="text-right">
-                <p class="text-2xl font-black text-amber-400 leading-none" id="streakCount">0</p>
-                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">ימים ברצף</p>
+    <!-- מסך טעינה (Splash Screen) -->
+    <div id="splash" class="fixed inset-0 bg-white z-50 flex items-center justify-center transition-opacity duration-500">
+        <div class="text-center animate-bounce">
+            <div class="w-20 h-20 bg-indigo-600 rounded-3xl mx-auto mb-4 flex items-center justify-center shadow-xl">
+                <span class="text-4xl text-white">M</span>
             </div>
+            <h1 class="text-2xl font-black text-slate-800 tracking-tight">Mindset</h1>
         </div>
     </div>
 
-    <div class="text-center w-full max-w-sm">
+    <!-- אפליקציה ראשית -->
+    <div id="app" class="h-full flex flex-col hidden">
         
-        <h1 class="text-3xl font-black mb-2 text-slate-200">הגרד היומי</h1>
-        <p class="text-slate-400 text-sm mb-8" id="instructions">גרד את הכרטיס כדי לגלות את המסר</p>
-
-        <!-- אזור הגירוד -->
-        <div class="scratch-container" id="scratchCard">
-            <!-- הקנבס (השכבה שמגרדים) -->
-            <canvas id="scratchCanvas"></canvas>
-            
-            <!-- התוכן המוסתר -->
-            <div class="hidden-content flex flex-col">
-                <span class="text-6xl mb-4">✨</span>
-                <p id="quoteText" class="text-2xl font-bold text-white drop-shadow-md leading-tight"></p>
-                <p class="mt-4 text-xs font-bold text-amber-100 opacity-80 uppercase tracking-widest">המסר שלך להיום</p>
+        <!-- כותרת עליונה -->
+        <header class="px-6 pt-12 pb-4 bg-white shadow-sm flex justify-between items-center z-10">
+            <div>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">בוקר טוב</p>
+                <h1 class="text-xl font-black">האימון היומי</h1>
             </div>
-        </div>
+            <div class="flex items-center gap-2 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
+                <span class="text-lg">🔥</span>
+                <span id="streak-display" class="text-sm font-bold text-orange-600">0</span>
+            </div>
+        </header>
 
-        <!-- כפתורים אחרי חשיפה -->
-        <div id="actions" class="mt-8 opacity-0 transition-opacity duration-1000 pointer-events-none">
-            <button onclick="shareQuote()" class="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold shadow-lg active:scale-95 transition w-full">
-                שתף את ההשראה בוואטסאפ
-            </button>
-            <p class="text-[10px] text-slate-500 mt-4">חזור מחר כדי לא לשבור את הרצף!</p>
-        </div>
+        <!-- אזור תוכן מתחלף -->
+        <main class="flex-1 overflow-y-auto no-scrollbar p-6 relative">
+            
+            <!-- מסך הבית -->
+            <div id="view-home" class="view-section fade-in h-full flex flex-col">
+                
+                <!-- הכרטיס היומי -->
+                <div class="flex-1 flex flex-col justify-center perspective mb-6">
+                    <div id="daily-card" class="flip-card-inner h-96 w-full cursor-pointer" onclick="revealQuote()">
+                        
+                        <!-- צד קדמי (סגור) -->
+                        <div class="flip-front bg-gradient-to-br from-indigo-600 to-purple-700 shadow-2xl flex flex-col items-center justify-center text-white p-8 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-xl"></div>
+                            <div class="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                            </div>
+                            <h2 class="text-2xl font-bold mb-2">המסר היומי</h2>
+                            <p class="text-indigo-100 text-sm opacity-80">לחץ כדי לגלות</p>
+                        </div>
+
+                        <!-- צד אחורי (המשפט) -->
+                        <div class="flip-back bg-white border border-slate-100 shadow-2xl p-8 flex flex-col items-center justify-center text-center">
+                            <span class="text-4xl text-indigo-200 mb-4">"</span>
+                            <p id="quote-text" class="text-xl font-bold text-slate-800 leading-relaxed"></p>
+                            <span class="text-4xl text-indigo-200 mt-4">"</span>
+                            
+                            <div class="mt-8 flex gap-3 w-full">
+                                <button onclick="shareQuote(event)" class="flex-1 bg-indigo-50 text-indigo-600 py-3 rounded-xl font-bold text-sm">שתף</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="text-center text-xs text-slate-400">חזור מחר כדי לשמור על הרצף</p>
+            </div>
+
+            <!-- מסך היסטוריה -->
+            <div id="view-history" class="view-section hidden fade-in">
+                <h2 class="text-lg font-bold mb-4">היסטוריית השראה</h2>
+                <div class="space-y-3" id="history-list">
+                    <!-- ימולא ב-JS -->
+                    <div class="p-4 bg-white rounded-xl border border-slate-100 shadow-sm">
+                        <p class="text-sm font-medium text-slate-600">אין עדיין היסטוריה...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- מסך הגדרות -->
+            <div id="view-settings" class="view-section hidden fade-in">
+                <h2 class="text-lg font-bold mb-4">הגדרות</h2>
+                
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-sm font-bold">התראה יומית</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" checked class="sr-only peer" disabled>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                    <p class="text-xs text-slate-400">האפליקציה תזכיר לך להיכנס דרך היומן (בקרוב)</p>
+                </div>
+
+                <div class="bg-indigo-50 rounded-2xl p-6 text-center">
+                    <p class="text-sm font-bold text-indigo-900">גרסת 1.0.0</p>
+                    <p class="text-xs text-indigo-400">פותח ע"י AI</p>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- סרגל ניווט תחתון (Tab Bar) -->
+        <nav class="bg-white border-t border-slate-100 pb-safe pt-2 px-6 shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">
+            <div class="flex justify-between items-center max-w-sm mx-auto">
+                <button onclick="switchTab('home')" class="nav-item active flex flex-col items-center p-2 text-slate-400 transition-colors" id="nav-home">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    <span class="text-[10px] font-bold">היום</span>
+                </button>
+                
+                <button onclick="switchTab('history')" class="nav-item flex flex-col items-center p-2 text-slate-400 transition-colors" id="nav-history">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <span class="text-[10px] font-bold">אוסף</span>
+                </button>
+
+                <button onclick="switchTab('settings')" class="nav-item flex flex-col items-center p-2 text-slate-400 transition-colors" id="nav-settings">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span class="text-[10px] font-bold">הגדרות</span>
+                </button>
+            </div>
+        </nav>
 
     </div>
 
     <script>
         const quotes = [
-            "הצלחה היא סכום של מאמצים קטנים שחוזרים על עצמם יום אחר יום.",
-            "אל תתן לפחד מכישלון לעצור אותך מלשחק את המשחק.",
-            "הדרך הכי טובה לחזות את העתיד היא ליצור אותו.",
-            "אתה חזק יותר משנדמה לך, אמיץ יותר משאתה מאמין.",
-            "כל יום הוא התחלה חדשה. קח נשימה עמוקה ותתחיל מחדש.",
-            "האנרגיה שאתה משדר היא האנרגיה שאתה מושך.",
-            "צעד קטן היום מוביל לשינוי גדול מחר."
+            "הצלחה היא היכולת לעבור מכישלון לכישלון מבלי לאבד את ההתלהבות.",
+            "אל תחכה להזדמנות, צור אותה.",
+            "תאמין שאתה יכול ואתה כבר בחצי הדרך.",
+            "כל יום הוא דף חלק.",
+            "האנרגיה שלך קובעת את המציאות שלך.",
+            "אתה חזק יותר ממה שאתה יודע.",
+            "צעד קטן הוא התחלה גדולה."
         ];
 
-        // לוגיקה של רצף (Streak)
-        function checkStreak() {
-            const today = new Date().toDateString();
-            const lastVisit = localStorage.getItem('lastVisit');
-            let streak = parseInt(localStorage.getItem('streak') || 0);
+        // אתחול האפליקציה
+        window.onload = () => {
+            // טעינת ספלאש
+            setTimeout(() => {
+                document.getElementById('splash').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('splash').style.display = 'none';
+                    document.getElementById('app').classList.remove('hidden');
+                }, 500);
+            }, 1500);
 
-            if (lastVisit === today) {
-                // כבר ביקר היום - נשאיר את הרצף
-                document.getElementById('streakCount').innerText = streak;
-                return true; // כבר נחשף
-            }
-
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            
-            if (lastVisit === yesterday.toDateString()) {
-                // ביקר אתמול - להעלות רצף
-                streak++;
-            } else {
-                // שבר רצף (או פעם ראשונה)
-                streak = 1;
-            }
-
-            localStorage.setItem('streak', streak);
-            localStorage.setItem('lastVisit', today);
-            document.getElementById('streakCount').innerText = streak;
-            return false; // חדש להיום
-        }
-
-        // הגדרת משפט יומי
-        const now = new Date();
-        const start = new Date(now.getFullYear(), 0, 0);
-        const diff = now - start;
-        const dayIdx = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const dailyQuote = quotes[dayIdx % quotes.length];
-        document.getElementById('quoteText').innerText = dailyQuote;
-
-        // אתחול כרטיס גירוד
-        const canvas = document.getElementById('scratchCanvas');
-        const ctx = canvas.getContext('2d');
-        const container = document.getElementById('scratchCard');
-        
-        // התאמת גודל קנבס
-        canvas.width = container.offsetWidth;
-        canvas.height = container.offsetHeight;
-
-        // מילוי הקנבס ב"כיסוי" (צבע אפור/כסף)
-        const initCanvas = (isRevealed) => {
-            if (isRevealed) {
-                canvas.style.display = 'none';
-                showActions();
-                return;
-            }
-
-            ctx.fillStyle = '#334155'; // צבע הציפוי
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // הוספת טקסט על הציפוי
-            ctx.fillStyle = '#94a3b8';
-            ctx.font = 'bold 20px Rubik';
-            ctx.textAlign = "center";
-            ctx.fillText("גרד כאן לגילוי", canvas.width/2, canvas.height/2);
-            
-            // הוספת אייקונים לקישוט
-            ctx.font = '40px Arial';
-            ctx.fillText("❔", canvas.width/2, canvas.height/2 - 40);
+            loadDailyQuote();
+            updateStreak();
+            renderHistory();
         };
 
-        const alreadyRevealed = checkStreak();
-        // אם המשתמש כבר ביקר היום - הכרטיס כבר מגורד
-        // אם אתה רוצה שהוא יגרד כל פעם מחדש (אפילו את אותו משפט), שנה ל-false
-        initCanvas(false); 
+        // ניווט בין טאבים
+        function switchTab(tabName) {
+            // הסתרת כל המסכים
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
 
-        // לוגיקת גירוד
-        let isDrawing = false;
-
-        function getMousePos(canvas, evt) {
-            const rect = canvas.getBoundingClientRect();
-            return {
-                x: (evt.clientX || evt.touches[0].clientX) - rect.left,
-                y: (evt.clientY || evt.touches[0].clientY) - rect.top
-            };
+            // עדכון כפתורים
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`nav-${tabName}`).classList.add('active');
         }
 
-        function scratch(e) {
-            if (!isDrawing) return;
-            e.preventDefault(); // מניעת גלילה בטלפון
+        // לוגיקת המשפט היומי
+        function loadDailyQuote() {
+            const now = new Date();
+            const start = new Date(now.getFullYear(), 0, 0);
+            const diff = now - start;
+            const oneDay = 1000 * 60 * 60 * 24;
+            const dayIdx = Math.floor(diff / oneDay);
+            const dailyQuote = quotes[dayIdx % quotes.length];
             
-            const pos = getMousePos(canvas, e);
-            
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.beginPath();
-            ctx.arc(pos.x, pos.y, 25, 0, Math.PI * 2); // גודל המחק
-            ctx.fill();
-            
-            checkScratchPercent();
-        }
+            document.getElementById('quote-text').innerText = dailyQuote;
 
-        function startScratch(e) { isDrawing = true; scratch(e); }
-        function endScratch() { isDrawing = false; }
-
-        // אירועי מגע ועכבר
-        canvas.addEventListener('mousedown', startScratch);
-        canvas.addEventListener('touchstart', startScratch);
-        canvas.addEventListener('mousemove', scratch);
-        canvas.addEventListener('touchmove', scratch);
-        canvas.addEventListener('mouseup', endScratch);
-        canvas.addEventListener('touchend', endScratch);
-
-        // בדיקה כמה גורד
-        function checkScratchPercent() {
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const pixels = imageData.data;
-            let transparentPixels = 0;
-            
-            for (let i = 3; i < pixels.length; i += 4) {
-                if (pixels[i] === 0) transparentPixels++;
-            }
-            
-            const percent = (transparentPixels / (pixels.length / 4)) * 100;
-            
-            if (percent > 40) { // אם גירדו מעל 40%
-                canvas.style.transition = 'opacity 0.5s';
-                canvas.style.opacity = '0';
-                setTimeout(() => {
-                    canvas.style.display = 'none';
-                    showActions();
-                }, 500);
+            // בדיקה אם כבר נפתח היום
+            const lastOpened = localStorage.getItem('lastOpened');
+            if (lastOpened === now.toDateString()) {
+                document.getElementById('daily-card').classList.add('flipped');
             }
         }
 
-        function showActions() {
-            const actions = document.getElementById('actions');
-            actions.classList.remove('pointer-events-none');
-            actions.classList.remove('opacity-0');
-            document.getElementById('instructions').innerText = "כל הכבוד! שמרת על הרצף 🔥";
-            
-            // אפקט רטט להצלחה
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        // פתיחת הכרטיס
+        function revealQuote() {
+            const card = document.getElementById('daily-card');
+            if (!card.classList.contains('flipped')) {
+                card.classList.add('flipped');
+                
+                // עדכון לוגיקה
+                const today = new Date().toDateString();
+                localStorage.setItem('lastOpened', today);
+                
+                // עדכון רצף
+                incrementStreak();
+                
+                // שמירה להיסטוריה
+                addToHistory(document.getElementById('quote-text').innerText);
+            }
         }
 
-        function shareQuote() {
-            const text = `היום הוא יום ${localStorage.getItem('streak')} שלי ברצף! 🔥\nהמסר שלי להיום:\n"${dailyQuote}"\n\nבואו להתחיל רצף משלכם: ${window.location.href}`;
+        // ניהול רצף (Streak)
+        function incrementStreak() {
+            let streak = parseInt(localStorage.getItem('streak') || 0);
+            const lastStreakDate = localStorage.getItem('lastStreakDate');
+            const today = new Date().toDateString();
+            const yesterday = new Date(Date.now() - 86400000).toDateString();
+
+            if (lastStreakDate !== today) {
+                if (lastStreakDate === yesterday) {
+                    streak++;
+                } else {
+                    streak = 1; // שבירת רצף
+                }
+                localStorage.setItem('streak', streak);
+                localStorage.setItem('lastStreakDate', today);
+                updateStreak();
+            }
+        }
+
+        function updateStreak() {
+            document.getElementById('streak-display').innerText = localStorage.getItem('streak') || 0;
+        }
+
+        // היסטוריה
+        function addToHistory(quote) {
+            let history = JSON.parse(localStorage.getItem('history') || '[]');
+            if (!history.includes(quote)) {
+                history.unshift(quote); // הוספה להתחלה
+                localStorage.setItem('history', JSON.stringify(history));
+                renderHistory();
+            }
+        }
+
+        function renderHistory() {
+            const history = JSON.parse(localStorage.getItem('history') || '[]');
+            const list = document.getElementById('history-list');
+            
+            if (history.length === 0) return;
+
+            list.innerHTML = history.map(q => `
+                <div class="p-4 bg-white rounded-xl border border-slate-100 shadow-sm">
+                    <p class="text-sm font-bold text-slate-700">"${q}"</p>
+                </div>
+            `).join('');
+        }
+
+        function shareQuote(e) {
+            e.stopPropagation(); // מניעת היפוך הכרטיס
+            const text = document.getElementById('quote-text').innerText;
             if (navigator.share) {
-                navigator.share({ title: 'הגרד היומי', text: text });
-            } else {
-                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+                navigator.share({ title: 'Mindset', text: text, url: window.location.href });
             }
         }
     </script>
