@@ -1,0 +1,174 @@
+import React, { useState, useEffect, useRef } from 'react';
+
+// משפטי העצמה
+const QUOTES = [
+  "הדרך היחידה לעשות עבודה נהדרת היא לאהוב את מה שאתה עושה.",
+  "העתיד שייך לאלו המאמינים ביופי של החלומות שלהם.",
+  "כל יום הוא הזדמנות שנייה.",
+  "אל תספור את הימים, גרום לימים להיספר.",
+  "ההצלחה היא לא סופית, והכישלון אינו גורלי.",
+  "מה שאתה עושה היום יכול לשפר את כל המחרים שלך.",
+  "אל תחכה להזדמנות, צור אותה.",
+  "השינוי מתחיל בך.",
+  "גם מסע של אלף מייל מתחיל בצעד אחד קטן.",
+  "תאמין שאתה יכול, ואתה כבר בחצי הדרך.",
+  "אתה חזק יותר ממה שאתה חושב.",
+  "תהיה אדיב לעצמך היום."
+];
+
+const App = () => {
+  const [time, setTime] = useState(localStorage.getItem('reminderTime') || '08:00');
+  const [isLocked, setIsLocked] = useState(true);
+  const [quote, setQuote] = useState('');
+  const [showToast, setShowToast] = useState(false);
+  const [bgActive, setBgActive] = useState(false);
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    updateQuoteStatus();
+    const interval = setInterval(updateQuoteStatus, 30000); // בדיקה כל 30 שניות
+    return () => clearInterval(interval);
+  }, [time]);
+
+  const updateQuoteStatus = () => {
+    const now = new Date();
+    const currentStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    // חישוב משפט לפי היום בשנה
+    const start = new Date(now.getFullYear(), 0, 0);
+    const diff = now - start;
+    const dayIdx = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const dailyQuote = QUOTES[dayIdx % QUOTES.length];
+    setQuote(dailyQuote);
+
+    if (currentStr >= time) {
+      setIsLocked(false);
+      // בדיקה אם כבר שלחנו התראה היום
+      const lastNotified = localStorage.getItem('lastNotifiedDate');
+      if (currentStr === time && lastNotified !== now.toDateString()) {
+        triggerNotification(dailyQuote);
+        localStorage.setItem('lastNotifiedDate', now.toDateString());
+      }
+    } else {
+      setIsLocked(true);
+    }
+  };
+
+  const triggerNotification = (text) => {
+    if (Notification.permission === 'granted') {
+      new Notification('ההשראה היומית שלך כאן ✨', {
+        body: text,
+        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'
+      });
+    }
+  };
+
+  const handleSave = () => {
+    localStorage.setItem('reminderTime', time);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+    
+    if (Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
+    
+    // הפעלת "מצב רקע" - דורש אינטראקציה של המשתמש
+    if (audioRef.current) {
+      audioRef.current.play().catch(e => console.log("Audio play blocked"));
+      setBgActive(true);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F0F4F8] flex items-center justify-center p-6 font-sans text-slate-800" dir="rtl">
+      {/* Hidden audio to keep the app alive in background */}
+      <audio ref={audioRef} loop>
+        <source src="data:audio/wav;base64,UklGRigAAABXQVZFAmZtdCAQAAAAEAAKAnABAAgAAABhZGF0YQAAAAA=" type="audio/wav" />
+      </audio>
+
+      <div className="w-full max-w-md bg-white rounded-[3rem] shadow-2xl overflow-hidden transition-all duration-700">
+        
+        {/* Header Section */}
+        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-10 text-white text-center relative">
+          <div className="absolute top-4 left-4">
+             <div className={`w-3 h-3 rounded-full ${bgActive ? 'bg-green-400 animate-pulse' : 'bg-slate-300'}`} title={bgActive ? 'Background mode active' : 'Background mode idle'}></div>
+          </div>
+          <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-md">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.344l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">רגע של שקט</h1>
+          <p className="text-indigo-100 text-sm mt-2">ההשראה היומית שלך מחכה לרגע הנכון</p>
+        </div>
+
+        {/* Content Section */}
+        <div className="p-8">
+          <div className="mb-8">
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">הגדר שעת הארה</label>
+            <div className="flex gap-3">
+              <input 
+                type="time" 
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-xl font-semibold focus:border-indigo-500 focus:outline-none transition-colors"
+              />
+              <button 
+                onClick={handleSave}
+                className="bg-indigo-600 text-white px-8 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-200"
+              >
+                שמור
+              </button>
+            </div>
+          </div>
+
+          <div className="relative min-h-[200px] flex items-center justify-center border-2 border-dashed border-slate-100 rounded-[2rem] p-6">
+            {isLocked ? (
+              <div className="text-center space-y-4">
+                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <p className="text-slate-400 font-medium">המשפט יתגלה בשעה {time}</p>
+                <p className="text-[10px] text-slate-300">וודא שהאפליקציה פתוחה ברקע</p>
+              </div>
+            ) : (
+              <div className="text-center animate-fade-in">
+                <svg className="h-8 w-8 text-indigo-100 absolute top-4 right-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M14.017 21L14.017 18C14.017 16.8954 14.9124 16 16.017 16H19.017C19.5693 16 20.017 15.5523 20.017 15V9C20.017 8.44772 19.5693 8 19.017 8H15.017C14.4647 8 14.017 7.55228 14.017 7V3L14.017 3H21.017V15C21.017 18.3137 18.3307 21 15.017 21H14.017ZM3.017 21L3.017 18C3.017 16.8954 3.91243 16 5.017 16H8.017C8.56928 16 9.017 15.5523 9.017 15V9C9.017 8.44772 8.56928 8 8.017 8H4.017C3.46472 8 3.017 7.55228 3.017 7V3L3.017 3H10.017V15C10.017 18.3137 7.33072 21 4.017 21H3.017Z" />
+                </svg>
+                <p className="text-2xl font-bold text-slate-700 leading-tight mb-6">"{quote}"</p>
+                <button 
+                  onClick={() => navigator.share({ title: 'השראה יומית', text: quote, url: window.location.href })}
+                  className="inline-flex items-center gap-2 text-indigo-600 font-bold text-sm hover:underline"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                  שתף את האור
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer info */}
+        <div className="bg-slate-50 p-6 text-center">
+           <p className="text-[10px] text-slate-400 leading-relaxed uppercase tracking-tighter">
+             לתוצאות מיטביות: הוסף למסך הבית, אשר התראות ואל תסגור את הלשונית לגמרי.
+           </p>
+        </div>
+      </div>
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl animate-bounce font-bold">
+          נשמר! המסע מתחיל... ✨
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default App;
