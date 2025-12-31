@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>העצמה יומית</title>
     
-    <!-- Manifest for PWA detection -->
-    <link rel="manifest" href='data:application/manifest+json,{"name":"העצמה יומית","short_name":"העצמה","start_url":".","display":"standalone","background_color":"#ffffff","theme_color":"#3b82f6","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/3135/3135715.png","sizes":"512x512","type":"image/png"}]}'>
+    <!-- PWA Metadata -->
+    <link rel="manifest" href='data:application/manifest+json,{"name":"העצמה יומית","short_name":"העצמה","start_url":"index.html","display":"standalone","background_color":"#ffffff","theme_color":"#3b82f6","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/3135/3135715.png","sizes":"512x512","type":"image/png"}]}'>
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="העצמה יומית">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -29,37 +29,30 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
         .locked-state {
-            filter: blur(20px);
+            filter: blur(25px);
             user-select: none;
             pointer-events: none;
-            opacity: 0.3;
-        }
-        .fade-in {
-            animation: fadeIn 0.8s ease-out forwards;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
+            opacity: 0.2;
         }
         .status-dot {
             height: 10px;
             width: 10px;
             border-radius: 50%;
             display: inline-block;
-            margin-left: 5px;
+            margin-left: 8px;
         }
     </style>
 </head>
 <body>
 
-    <div class="w-full max-w-md bg-white rounded-[2.5rem] p-8 quote-card text-center fade-in">
+    <div class="w-full max-w-md bg-white rounded-[2.5rem] p-8 quote-card text-center shadow-2xl">
         
-        <!-- לוח בקרה לאבחון (Debug Panel) -->
-        <div id="debug-panel" class="mb-6 p-4 bg-gray-50 rounded-2xl text-right text-xs border border-gray-100">
-            <h3 class="font-bold mb-2 text-gray-700 underline">סטטוס מערכת:</h3>
+        <!-- לוח אבחון משופר -->
+        <div id="debug-panel" class="mb-6 p-4 bg-slate-50 rounded-2xl text-right text-xs border border-slate-200">
+            <h3 class="font-bold mb-2 text-slate-700">סטטוס חיבור:</h3>
             <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                    <span>שירות רקע (Service Worker)</span>
+                    <span>שירות רקע (SW)</span>
                     <span id="sw-status" class="status-dot bg-red-400"></span>
                 </div>
                 <div class="flex items-center justify-between">
@@ -67,57 +60,54 @@
                     <span id="perm-status" class="status-dot bg-red-400"></span>
                 </div>
                 <div class="flex items-center justify-between">
-                    <span>פועל ממסך הבית (App Mode)</span>
+                    <span>מצב אפליקציה (Standalone)</span>
                     <span id="standalone-status" class="status-dot bg-red-400"></span>
                 </div>
             </div>
-            <div id="action-needed" class="mt-3 p-2 bg-amber-100 text-amber-800 rounded-lg font-bold hidden text-center">
-                חובה להוסיף למסך הבית כדי שיעבוד!
-            </div>
-        </div>
-
-        <div class="mb-6 pb-6 border-b border-gray-100 text-right">
-            <label class="block text-sm font-bold text-gray-500 mb-2">שעת קבלת המשפט:</label>
-            <div class="flex gap-2 justify-center">
-                <input type="time" id="reminder-time" class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                <button onclick="saveSettings()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-700 transition">שמור</button>
-            </div>
-            <button onclick="testNotification()" class="mt-4 w-full py-2 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200 transition">
-                בדיקת התראה עכשיו
+            <button onclick="forceRegisterSW()" class="mt-3 w-full py-1 text-blue-600 font-bold border border-blue-200 rounded-md hover:bg-blue-50 transition">
+                לחץ כאן להפעלת שירות רקע
             </button>
         </div>
 
+        <div class="mb-6 pb-6 border-b border-slate-100 text-right">
+            <label class="block text-sm font-bold text-slate-500 mb-2">שעת התראה מבוקשת:</label>
+            <div class="flex gap-2 justify-center">
+                <input type="time" id="reminder-time" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <button onclick="saveSettings()" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold hover:bg-blue-700 transition">שמור</button>
+            </div>
+        </div>
+
         <header class="mb-8">
-            <div id="status-icon" class="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transition-colors duration-500">
+            <div id="status-icon" class="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transition-all duration-500">
                 <svg id="icon-svg" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>
-            <h1 class="text-2xl font-bold text-gray-800 tracking-tight" id="app-title">המשפט היומי</h1>
-            <p id="date-display" class="text-sm font-medium text-gray-400 mt-1"></p>
+            <h1 class="text-2xl font-bold text-slate-800 tracking-tight" id="app-title">המשפט היומי</h1>
+            <p id="date-display" class="text-sm font-medium text-slate-400 mt-1"></p>
         </header>
 
         <main class="mb-10 min-h-[160px] flex items-center justify-center relative">
-            <div id="lock-overlay" class="absolute inset-0 z-20 flex flex-col items-center justify-center">
-                <div class="bg-white/90 p-4 rounded-2xl shadow-sm border border-gray-100">
-                    <p class="text-blue-600 font-bold" id="lock-message">המשפט יתגלה בשעה שקבעת</p>
+            <div id="lock-overlay" class="absolute inset-0 z-20 flex items-center justify-center">
+                <div class="bg-white/80 p-5 rounded-3xl shadow-sm border border-slate-50">
+                    <p class="text-blue-600 font-bold text-lg" id="lock-message">ההשראה תגיע בשעה שקבעת</p>
                 </div>
             </div>
             
             <div id="quote-container" class="locked-state w-full">
-                <p id="quote-text" class="text-xl md:text-2xl font-bold text-gray-700 leading-relaxed px-4"></p>
+                <p id="quote-text" class="text-xl md:text-2xl font-bold text-slate-700 leading-relaxed px-4"></p>
             </div>
         </main>
 
         <footer id="action-buttons" class="hidden">
-            <button onclick="shareQuote()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2">
-                שתף השראה
+            <button onclick="shareQuote()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2">
+                שתף עם חברים
             </button>
         </footer>
     </div>
 
-    <div id="toast" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-8 py-3 rounded-full opacity-0 transition-all duration-300 pointer-events-none text-sm font-bold z-50">
-        הגדרות נשמרו!
+    <div id="toast" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-8 py-3 rounded-full opacity-0 transition-all duration-300 pointer-events-none text-sm font-bold z-50">
+        הגדרות עודכנו!
     </div>
 
     <script>
@@ -136,50 +126,47 @@
             "תהיה אדיב לעצמך."
         ];
 
-        // פונקציית רישום משופרת לשירות הרקע
-        async function initServiceWorker() {
+        // פונקציית רישום בכוח
+        async function forceRegisterSW() {
             if ('serviceWorker' in navigator) {
+                const swCode = `
+                    self.addEventListener('install', e => self.skipWaiting());
+                    self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+                    self.addEventListener('notificationclick', e => {
+                        e.notification.close();
+                        e.waitUntil(clients.matchAll({type: 'window'}).then(c => {
+                            if (c.length > 0) return c[0].focus();
+                            return clients.openWindow('/');
+                        }));
+                    });
+                `;
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
                 try {
-                    const swCode = `
-                        self.addEventListener('install', e => self.skipWaiting());
-                        self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-                        self.addEventListener('notificationclick', e => {
-                            e.notification.close();
-                            e.waitUntil(clients.matchAll({type: 'window'}).then(clients => {
-                                if (clients.length > 0) return clients[0].focus();
-                                return clients.openWindow('/');
-                            }));
-                        });
-                    `;
-                    const blob = new Blob([swCode], { type: 'application/javascript' });
-                    const swUrl = URL.createObjectURL(blob);
-                    const registration = await navigator.serviceWorker.register(swUrl);
-                    if (registration) {
-                        document.getElementById('sw-status').classList.replace('bg-red-400', 'bg-green-400');
-                    }
-                } catch (err) {
-                    console.log('SW registration skipped or failed - common in non-standalone browser mode');
+                    await navigator.serviceWorker.register(swUrl);
+                    document.getElementById('sw-status').classList.replace('bg-red-400', 'bg-green-400');
+                    showToast("שירות רקע הופעל!");
+                } catch (e) {
+                    console.error(e);
                 }
             }
         }
 
-        function updateStatusDots() {
-            // בדיקת הרשאות התראה
-            if (window.Notification) {
-                if (Notification.permission === 'granted') {
-                    document.getElementById('perm-status').classList.replace('bg-red-400', 'bg-green-400');
-                } else if (Notification.permission === 'default') {
-                    // המשתמש טרם נשאל
-                }
-            }
-
-            // בדיקת האם האפליקציה רצה ממסך הבית (Standalone)
+        function updateStatus() {
+            // Standalone check
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
             if (isStandalone) {
                 document.getElementById('standalone-status').classList.replace('bg-red-400', 'bg-green-400');
-                document.getElementById('action-needed').classList.add('hidden');
-            } else {
-                document.getElementById('action-needed').classList.remove('hidden');
+            }
+
+            // Notification check
+            if (window.Notification && Notification.permission === 'granted') {
+                document.getElementById('perm-status').classList.replace('bg-red-400', 'bg-green-400');
+            }
+
+            // Service Worker check
+            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                document.getElementById('sw-status').classList.replace('bg-red-400', 'bg-green-400');
             }
         }
 
@@ -187,37 +174,23 @@
             const timeVal = document.getElementById('reminder-time').value;
             if (timeVal) {
                 localStorage.setItem('reminderTime', timeVal);
-                showToast("הגדרות נשמרו!");
+                showToast("השעה נשמרה!");
                 localStorage.removeItem('lastNotifiedDate');
                 
-                if (window.Notification && Notification.permission !== 'granted') {
-                    Notification.requestPermission().then(updateStatusDots);
+                if (window.Notification) {
+                    Notification.requestPermission().then(updateStatus);
                 }
                 updateUI();
             }
         }
 
-        function testNotification() {
-            if (Notification.permission === 'granted') {
-                sendNotification("בדיקת מערכת", "הנה, זה עובד! כך תקבל את המשפט היומי.");
-            } else {
-                Notification.requestPermission().then(permission => {
-                    if (permission === 'granted') {
-                        sendNotification("התראות אושרו", "עכשיו הכל מוכן!");
-                        updateStatusDots();
-                    } else {
-                        alert("חובה לאשר התראות בהגדרות הטלפון/דפדפן.");
-                    }
-                });
-            }
-        }
-
         function sendNotification(title, body) {
-            if ('serviceWorker' in navigator) {
+            if ('serviceWorker' in navigator && Notification.permission === 'granted') {
                 navigator.serviceWorker.ready.then(reg => {
                     reg.showNotification(title, {
                         body: body,
                         icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+                        badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
                         vibrate: [200, 100, 200]
                     });
                 });
@@ -233,39 +206,26 @@
             const options = { weekday: 'long', day: 'numeric', month: 'long' };
             document.getElementById('date-display').innerText = now.toLocaleDateString('he-IL', options);
 
-            const start = new Date(now.getFullYear(), 0, 0);
-            const diff = now - start;
-            const dayIdx = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const currentQuote = quotes[dayIdx % quotes.length];
-            document.getElementById('quote-text').innerText = currentQuote;
+            const dayIdx = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+            const quote = quotes[dayIdx % quotes.length];
+            document.getElementById('quote-text').innerText = quote;
 
             if (currentStr >= savedTime) {
-                unlockApp();
-                const today = now.toDateString();
-                if (currentStr === savedTime && localStorage.getItem('lastNotifiedDate') !== today) {
-                    sendNotification('המשפט היומי שלך כאן!', currentQuote);
-                    localStorage.setItem('lastNotifiedDate', today);
+                document.getElementById('quote-container').classList.remove('locked-state');
+                document.getElementById('lock-overlay').classList.add('hidden');
+                document.getElementById('action-buttons').classList.remove('hidden');
+                document.getElementById('app-title').innerText = "ההשראה שלך";
+                document.getElementById('status-icon').classList.replace('bg-blue-500', 'bg-green-500');
+                
+                if (currentStr === savedTime && localStorage.getItem('lastNotifiedDate') !== now.toDateString()) {
+                    sendNotification('המשפט היומי הגיע!', quote);
+                    localStorage.setItem('lastNotifiedDate', now.toDateString());
                 }
             } else {
-                lockApp(savedTime);
+                document.getElementById('quote-container').classList.add('locked-state');
+                document.getElementById('lock-overlay').classList.remove('hidden');
+                document.getElementById('lock-message').innerText = `ההשראה תגיע בשעה ${savedTime}`;
             }
-        }
-
-        function unlockApp() {
-            document.getElementById('quote-container').classList.remove('locked-state');
-            document.getElementById('lock-overlay').classList.add('hidden');
-            document.getElementById('action-buttons').classList.remove('hidden');
-            document.getElementById('app-title').innerText = "ההשראה שלך להיום";
-            document.getElementById('status-icon').className = "w-16 h-16 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg";
-        }
-
-        function lockApp(time) {
-            document.getElementById('quote-container').classList.add('locked-state');
-            document.getElementById('lock-overlay').classList.remove('hidden');
-            document.getElementById('action-buttons').classList.add('hidden');
-            document.getElementById('app-title').innerText = "עוד קצת סבלנות...";
-            document.getElementById('lock-message').innerText = `המשפט יתגלה בשעה ${time}`;
-            document.getElementById('status-icon').className = "w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg";
         }
 
         function showToast(msg) {
@@ -275,21 +235,19 @@
             setTimeout(() => toast.style.opacity = '0', 3000);
         }
 
-        async function shareQuote() {
+        function shareQuote() {
             const text = document.getElementById('quote-text').innerText;
             if (navigator.share) {
-                try {
-                    await navigator.share({ title: 'העצמה יומית', text: `"${text}"`, url: window.location.href });
-                } catch (e) {}
+                navigator.share({ title: 'העצמה יומית', text: `"${text}"`, url: window.location.href });
             }
         }
 
         window.onload = () => {
-            initServiceWorker();
-            updateStatusDots();
+            forceRegisterSW();
+            updateStatus();
             updateUI();
         };
-        setInterval(updateUI, 15000); 
+        setInterval(() => { updateUI(); updateStatus(); }, 15000);
     </script>
 </body>
 </html>
