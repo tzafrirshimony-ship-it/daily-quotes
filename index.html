@@ -42,6 +42,7 @@
         <!-- Notification Status Check -->
         <div id="setup-check" class="mb-4 p-3 bg-amber-50 rounded-xl text-xs text-amber-700 hidden">
             <p id="setup-message"></p>
+            <button onclick="requestPermissionDirectly()" class="mt-2 font-bold underline">לחץ כאן לאישור התראות</button>
         </div>
 
         <div class="mb-6 pb-6 border-b border-gray-100 text-right">
@@ -50,7 +51,7 @@
                 <input type="time" id="reminder-time" class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-lg focus:ring-2 focus:ring-blue-500 outline-none">
                 <button onclick="saveSettings()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-700 transition">שמור</button>
             </div>
-            <button id="test-btn" onclick="testNotification()" class="mt-4 text-xs text-blue-500 underline w-full text-center">שלח התראת בדיקה</button>
+            <button id="test-btn" onclick="testNotification()" class="mt-4 text-xs text-blue-500 underline w-full text-center">שלח התראת בדיקה (לוודא שזה עובד)</button>
         </div>
 
         <header class="mb-8">
@@ -82,7 +83,7 @@
         </footer>
     </div>
 
-    <div id="toast" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-8 py-3 rounded-full opacity-0 transition-all duration-300 pointer-events-none text-sm font-bold z-50">
+    <div id="toast" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-8 py-3 rounded-full opacity-0 transition-all duration-300 pointer-events-none text-sm font-bold z-50 text-center">
         הגדרות נשמרו!
     </div>
 
@@ -102,21 +103,40 @@
             "תהיה אדיב לעצמך."
         ];
 
-        // Improved Service Worker registration for better reliability
-        if ('serviceWorker' in navigator) {
-            const swCode = `
-                self.addEventListener('install', event => self.skipWaiting());
-                self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
-                self.addEventListener('notificationclick', event => {
-                    event.notification.close();
-                    event.waitUntil(clients.openWindow(self.location.origin));
-                });
-            `;
-            const blob = new Blob([swCode], { type: 'application/javascript' });
-            const swUrl = URL.createObjectURL(blob);
-            navigator.serviceWorker.register(swUrl).then(reg => {
-                console.log('SW Registered');
-            }).catch(err => console.log('SW Error', err));
+        // Service Worker registration with check
+        async function registerSW() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    const swCode = `
+                        self.addEventListener('install', event => self.skipWaiting());
+                        self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
+                        self.addEventListener('notificationclick', event => {
+                            event.notification.close();
+                            event.waitUntil(clients.matchAll({type: 'window'}).then(windowClients => {
+                                if (windowClients.length > 0) return windowClients[0].focus();
+                                return clients.openWindow(self.location.origin);
+                            }));
+                        });
+                    `;
+                    const blob = new Blob([swCode], { type: 'application/javascript' });
+                    const swUrl = URL.createObjectURL(blob);
+                    await navigator.serviceWorker.register(swUrl);
+                    console.log('SW Active');
+                } catch (e) {
+                    console.error('SW Registration failed', e);
+                }
+            }
+        }
+
+        function requestPermissionDirectly() {
+            if (!("Notification" in window)) {
+                showToast("הדפדפן לא תומך בהתראות");
+                return;
+            }
+            Notification.requestPermission().then(permission => {
+                checkSetup();
+                if (permission === 'granted') showToast("מעולה! ההתראות אושרו.");
+            });
         }
 
         function saveSettings() {
@@ -124,13 +144,8 @@
             if (timeVal) {
                 localStorage.setItem('reminderTime', timeVal);
                 showToast("השעה נשמרה!");
-                
-                // Reset daily notification flag when changing time
                 localStorage.removeItem('lastNotifiedDate');
-                
-                if (window.Notification && Notification.permission !== 'granted') {
-                    Notification.requestPermission().then(checkSetup);
-                }
+                requestPermissionDirectly();
                 updateUI();
             }
         }
@@ -147,15 +162,20 @@
 
             if (Notification.permission === 'denied') {
                 setupBox.classList.remove('hidden');
-                setupMsg.innerText = "חסמת התראות. יש לאשר אותן בהגדרות האתר.";
+                setupMsg.innerText = "חסמת התראות בהגדרות הטלפון. יש לאפשר אותן ידנית כדי לקבל משפטים.";
                 return;
             }
 
-            // Check if added to home screen (simplified check)
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
             if (!isStandalone && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
                 setupBox.classList.remove('hidden');
-                setupMsg.innerText = "באייפון, חובה להוסיף את האפליקציה למסך הבית כדי לקבל התראות.";
+                setupMsg.innerText = "באייפון, חובה להוסיף את האפליקציה למסך הבית (Share -> Add to Home Screen).";
+                return;
+            }
+
+            if (Notification.permission === 'default') {
+                setupBox.classList.remove('hidden');
+                setupMsg.innerText = "יש לאשר התראות כדי לקבל את המשפט היומי.";
                 return;
             }
 
@@ -164,12 +184,9 @@
 
         function testNotification() {
             if (Notification.permission !== "granted") {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") sendInstantNotification("בדיקת מערכת", "מעולה! ההתראות מאושרות.");
-                    else showToast("יש לאשר התראות כדי לבדוק.");
-                });
+                requestPermissionDirectly();
             } else {
-                sendInstantNotification("בדיקת מערכת", "התראות עובדות באפליקציה שלך!");
+                sendInstantNotification("בדיקת מערכת ✅", "אם אתה רואה את זה, ההתראות שלך עובדות!");
             }
         }
 
@@ -179,8 +196,7 @@
                     reg.showNotification(title, {
                         body: body,
                         icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                        vibrate: [200, 100, 200],
-                        tag: 'test-notification'
+                        vibrate: [200, 100, 200]
                     });
                 });
             }
@@ -201,18 +217,17 @@
             const startOfYear = new Date(now.getFullYear(), 0, 0);
             const diff = now - startOfYear;
             const dayIdx = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const currentQuote = quotes[dayIdx % quotes.length];
-            document.getElementById('quote-text').innerText = currentQuote;
+            document.getElementById('quote-text').innerText = quotes[dayIdx % quotes.length];
 
             if (currentTimeStr >= savedTime) {
                 unlockApp();
                 
-                // Logic to trigger notification once a day at the specific minute
                 const todayStr = now.toDateString();
                 const lastNotified = localStorage.getItem('lastNotifiedDate');
                 
+                // Trigger notification exactly at the minute
                 if (currentTimeStr === savedTime && lastNotified !== todayStr) {
-                    sendInstantNotification('העצמה יומית', 'המשפט היומי שלך מחכה לך!');
+                    sendInstantNotification('העצמה יומית ✨', 'המשפט היומי שלך מחכה לך!');
                     localStorage.setItem('lastNotifiedDate', todayStr);
                 }
             } else {
@@ -260,10 +275,11 @@
         }
 
         window.onload = () => {
+            registerSW();
             updateUI();
             checkSetup();
         };
-        setInterval(updateUI, 20000); // Check more frequently
+        setInterval(updateUI, 15000); // Check every 15 seconds
     </script>
 </body>
 </html>
