@@ -6,7 +6,7 @@
     <title>העצמה יומית</title>
     
     <!-- PWA Metadata -->
-    <link rel="manifest" href='data:application/manifest+json,{"name":"העצמה יומית","short_name":"העצמה","start_url":"index.html","display":"standalone","background_color":"#ffffff","theme_color":"#3b82f6","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/3135/3135715.png","sizes":"512x512","type":"image/png"}]}'>
+    <link rel="manifest" href='data:application/manifest+json,{"name":"העצמה יומית","short_name":"העצמה","start_url":".","display":"standalone","background_color":"#ffffff","theme_color":"#3b82f6","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/3135/3135715.png","sizes":"512x512","type":"image/png"}]}'>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="העצמה יומית">
@@ -26,7 +26,7 @@
         }
         .quote-card {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
         }
         .locked-state {
             filter: blur(25px);
@@ -45,14 +45,14 @@
 </head>
 <body>
 
-    <div class="w-full max-w-md bg-white rounded-[2.5rem] p-8 quote-card text-center shadow-2xl">
+    <div class="w-full max-w-md bg-white rounded-[2.5rem] p-8 quote-card text-center relative overflow-hidden">
         
-        <!-- לוח אבחון משופר -->
-        <div id="debug-panel" class="mb-6 p-4 bg-slate-50 rounded-2xl text-right text-xs border border-slate-200">
-            <h3 class="font-bold mb-2 text-slate-700">סטטוס חיבור:</h3>
+        <!-- Debug Panel -->
+        <div id="debug-panel" class="mb-6 p-4 bg-slate-50 rounded-2xl text-right text-[11px] border border-slate-200">
+            <h3 class="font-bold mb-2 text-slate-700 border-b pb-1">אבחון טכני:</h3>
             <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                    <span>שירות רקע (SW)</span>
+                    <span>שירות רקע (Service Worker)</span>
                     <span id="sw-status" class="status-dot bg-red-400"></span>
                 </div>
                 <div class="flex items-center justify-between">
@@ -60,25 +60,27 @@
                     <span id="perm-status" class="status-dot bg-red-400"></span>
                 </div>
                 <div class="flex items-center justify-between">
-                    <span>מצב אפליקציה (Standalone)</span>
+                    <span>פועל כאפליקציה (Standalone)</span>
                     <span id="standalone-status" class="status-dot bg-red-400"></span>
                 </div>
             </div>
-            <button onclick="forceRegisterSW()" class="mt-3 w-full py-1 text-blue-600 font-bold border border-blue-200 rounded-md hover:bg-blue-50 transition">
-                לחץ כאן להפעלת שירות רקע
+            <button onclick="forceRegisterSW()" class="mt-4 w-full py-2 bg-blue-50 text-blue-600 font-bold rounded-lg border border-blue-100 hover:bg-blue-100 transition active:scale-95">
+                נסה להפעיל שירות רקע שוב
             </button>
+            <p id="error-log" class="mt-2 text-red-500 font-medium hidden"></p>
         </div>
 
         <div class="mb-6 pb-6 border-b border-slate-100 text-right">
-            <label class="block text-sm font-bold text-slate-500 mb-2">שעת התראה מבוקשת:</label>
+            <label class="block text-sm font-bold text-slate-500 mb-2">בחר שעת קבלת משפט:</label>
             <div class="flex gap-2 justify-center">
                 <input type="time" id="reminder-time" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                <button onclick="saveSettings()" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold hover:bg-blue-700 transition">שמור</button>
+                <button onclick="saveSettings()" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold hover:bg-blue-700 transition active:scale-95">שמור</button>
             </div>
+            <button onclick="testNotification()" class="mt-3 w-full text-xs text-blue-400 font-medium">שלח התראת בדיקה</button>
         </div>
 
         <header class="mb-8">
-            <div id="status-icon" class="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transition-all duration-500">
+            <div id="status-icon" class="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transition-all duration-700">
                 <svg id="icon-svg" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -87,10 +89,10 @@
             <p id="date-display" class="text-sm font-medium text-slate-400 mt-1"></p>
         </header>
 
-        <main class="mb-10 min-h-[160px] flex items-center justify-center relative">
+        <main class="mb-10 min-h-[140px] flex items-center justify-center relative">
             <div id="lock-overlay" class="absolute inset-0 z-20 flex items-center justify-center">
                 <div class="bg-white/80 p-5 rounded-3xl shadow-sm border border-slate-50">
-                    <p class="text-blue-600 font-bold text-lg" id="lock-message">ההשראה תגיע בשעה שקבעת</p>
+                    <p class="text-blue-600 font-bold" id="lock-message">ההשראה תגיע בשעה שקבעת</p>
                 </div>
             </div>
             
@@ -100,7 +102,7 @@
         </main>
 
         <footer id="action-buttons" class="hidden">
-            <button onclick="shareQuote()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2">
+            <button onclick="shareQuote()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95">
                 שתף עם חברים
             </button>
         </footer>
@@ -122,34 +124,47 @@
             "השינוי מתחיל בך.",
             "גם מסע של אלף מייל מתחיל בצעד אחד קטן.",
             "תאמין שאתה יכול, ואתה כבר בחצי הדרך.",
-            "אתה חזק יותר ממה שאתה חושב.",
+            "אתה חזק יותר ממה שאתה חוכב.",
             "תהיה אדיב לעצמך."
         ];
 
-        // פונקציית רישום בכוח
+        // שיפור: שימוש ב-Data URL במקום Blob עבור תאימות גבוהה יותר
         async function forceRegisterSW() {
-            if ('serviceWorker' in navigator) {
-                const swCode = `
-                    self.addEventListener('install', e => self.skipWaiting());
-                    self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-                    self.addEventListener('notificationclick', e => {
-                        e.notification.close();
-                        e.waitUntil(clients.matchAll({type: 'window'}).then(c => {
-                            if (c.length > 0) return c[0].focus();
-                            return clients.openWindow('/');
-                        }));
-                    });
-                `;
-                const blob = new Blob([swCode], { type: 'application/javascript' });
-                const swUrl = URL.createObjectURL(blob);
-                try {
-                    await navigator.serviceWorker.register(swUrl);
-                    document.getElementById('sw-status').classList.replace('bg-red-400', 'bg-green-400');
-                    showToast("שירות רקע הופעל!");
-                } catch (e) {
-                    console.error(e);
-                }
+            if (!('serviceWorker' in navigator)) {
+                logError("דפדפן זה אינו תומך בשירותי רקע.");
+                return;
             }
+
+            const swCode = `
+                self.addEventListener('install', e => self.skipWaiting());
+                self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+                self.addEventListener('notificationclick', e => {
+                    e.notification.close();
+                    e.waitUntil(clients.matchAll({type: 'window'}).then(c => {
+                        if (c.length > 0) return c[0].focus();
+                        return clients.openWindow('/');
+                    }));
+                });
+            `;
+            
+            // המרה ל-Base64 כדי להשתמש ב-Data URL
+            const swDataUrl = 'data:application/javascript;base64,' + btoa(unescape(encodeURIComponent(swCode)));
+
+            try {
+                const registration = await navigator.serviceWorker.register(swDataUrl, { scope: './' });
+                console.log('SW registered:', registration);
+                updateStatus();
+                showToast("שירות רקע הופעל!");
+            } catch (err) {
+                console.error('SW registration failed:', err);
+                logError("שגיאת רישום: " + err.message);
+            }
+        }
+
+        function logError(msg) {
+            const el = document.getElementById('error-log');
+            el.innerText = msg;
+            el.classList.remove('hidden');
         }
 
         function updateStatus() {
@@ -165,8 +180,10 @@
             }
 
             // Service Worker check
-            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-                document.getElementById('sw-status').classList.replace('bg-red-400', 'bg-green-400');
+            if (navigator.serviceWorker && (navigator.serviceWorker.controller || navigator.serviceWorker.getRegistration())) {
+                navigator.serviceWorker.getRegistration().then(reg => {
+                    if (reg) document.getElementById('sw-status').classList.replace('bg-red-400', 'bg-green-400');
+                });
             }
         }
 
@@ -184,6 +201,21 @@
             }
         }
 
+        function testNotification() {
+            if (Notification.permission === 'granted') {
+                sendNotification("בדיקת מערכת ✅", "ההתראות שלך עובדות מצוין!");
+            } else {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        sendNotification("התראות אושרו", "עכשיו הכל מוכן!");
+                        updateStatus();
+                    } else {
+                        alert("חובה לאשר התראות בהגדרות המכשיר.");
+                    }
+                });
+            }
+        }
+
         function sendNotification(title, body) {
             if ('serviceWorker' in navigator && Notification.permission === 'granted') {
                 navigator.serviceWorker.ready.then(reg => {
@@ -192,8 +224,13 @@
                         icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
                         badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
                         vibrate: [200, 100, 200]
+                    }).catch(err => {
+                        // Fallback to simple notification if SW fails
+                        new Notification(title, { body });
                     });
                 });
+            } else if (Notification.permission === 'granted') {
+                new Notification(title, { body });
             }
         }
 
@@ -225,6 +262,7 @@
                 document.getElementById('quote-container').classList.add('locked-state');
                 document.getElementById('lock-overlay').classList.remove('hidden');
                 document.getElementById('lock-message').innerText = `ההשראה תגיע בשעה ${savedTime}`;
+                document.getElementById('status-icon').classList.replace('bg-green-500', 'bg-blue-500');
             }
         }
 
@@ -243,7 +281,8 @@
         }
 
         window.onload = () => {
-            forceRegisterSW();
+            // הוספת השהיה קלה לרישום כדי לוודא שהדף נטען לגמרי
+            setTimeout(forceRegisterSW, 1000);
             updateStatus();
             updateUI();
         };
