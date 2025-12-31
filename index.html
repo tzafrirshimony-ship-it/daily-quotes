@@ -3,112 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>העצמה יומית Zen</title>
+    <title>העצמה יומית</title>
     
-    <!-- PWA Metadata -->
+    <!-- PWA Settings -->
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3135/3135715.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700;800&display=swap" rel="stylesheet">
     
     <style>
-        body {
-            font-family: 'Assistant', sans-serif;
-            background: #f8fafc;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .zen-card {
-            box-shadow: 0 20px 50px rgba(0,0,0,0.05);
-        }
-        .locked-content {
-            filter: blur(20px);
-            opacity: 0.3;
-            pointer-events: none;
-        }
-        @keyframes pulse-green {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.2); opacity: 0.7; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        .active-dot { animation: pulse-green 2s infinite; }
+        body { font-family: 'Assistant', sans-serif; background: #fdfdfd; }
+        .glow-button { transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3); }
+        .glow-button:active { transform: scale(0.95); }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
+<body class="min-h-screen flex items-center justify-center p-6">
 
-    <!-- סאונד שקט לשמירה על אפליקציה פעילה ברקע -->
-    <audio id="bg-audio" loop>
-        <source src="data:audio/wav;base64,UklGRigAAABXQVZFAmZtdCAQAAAAEAAKAnABAAgAAABhZGF0YQAAAAA=" type="audio/wav">
-    </audio>
+    <div class="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8 text-center border border-gray-100">
+        <header class="mb-8">
+            <div class="w-20 h-20 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+            </div>
+            <h1 class="text-3xl font-extrabold text-gray-800">העצמה יומית</h1>
+            <p class="text-gray-400 text-sm mt-2">הגדר שעה וקבל השראה</p>
+        </header>
 
-    <div class="w-full max-w-md bg-white rounded-[2.5rem] zen-card overflow-hidden">
-        
-        <!-- Header Status -->
-        <div class="bg-slate-900 p-3 flex justify-around items-center text-[10px] text-slate-400">
-            <div class="flex items-center gap-1.5">
-                <div id="dot-perm" class="w-2 h-2 rounded-full bg-red-500"></div>
-                <span>הרשאות</span>
+        <main class="space-y-6">
+            <div class="bg-gray-50 p-4 rounded-2xl">
+                <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">שעת התראה</label>
+                <input type="time" id="notifyTime" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-2xl font-bold text-center text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
             </div>
-            <div class="flex items-center gap-1.5">
-                <div id="dot-bg" class="w-2 h-2 rounded-full bg-slate-600"></div>
-                <span>מצב רקע</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-                <div id="dot-home" class="w-2 h-2 rounded-full bg-red-500"></div>
-                <span>מסך בית</span>
-            </div>
+
+            <button onclick="enableNotifications()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-lg glow-button">
+                אשר התראות ובדוק
+            </button>
+
+            <div id="status" class="text-[11px] font-bold text-gray-400 mt-4 h-4 text-center"></div>
+        </main>
+
+        <div id="quoteArea" class="mt-8 p-6 bg-indigo-50 rounded-2xl border-2 border-dashed border-indigo-100 hidden">
+            <p id="quoteText" class="text-xl font-bold text-gray-700 italic leading-relaxed"></p>
         </div>
-
-        <div class="p-8">
-            <header class="text-center mb-10">
-                <h1 class="text-3xl font-extrabold text-indigo-600 tracking-tight">העצמה יומית</h1>
-                <p id="current-date" class="text-slate-400 text-sm mt-1 font-medium"></p>
-            </header>
-
-            <div class="space-y-6">
-                <!-- Time Setting -->
-                <div class="bg-slate-50 p-5 rounded-3xl border border-slate-100">
-                    <label class="block text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider text-right">מתי לשלוח השראה?</label>
-                    <div class="flex gap-2">
-                        <input type="time" id="time-input" class="flex-1 bg-white border border-slate-200 rounded-2xl px-4 py-3 text-xl font-bold text-indigo-900 outline-none focus:border-indigo-500 transition-all">
-                        <button onclick="activateSystem()" class="bg-indigo-600 text-white px-6 rounded-2xl font-bold hover:bg-indigo-700 active:scale-95 shadow-lg shadow-indigo-100 transition-all">
-                            הפעל
-                        </button>
-                    </div>
-                    <button onclick="testNow()" class="w-full mt-3 text-[11px] text-indigo-400 font-bold underline text-center">שלח התראת בדיקה עכשיו</button>
-                </div>
-
-                <!-- Quote Container -->
-                <div id="quote-box" class="min-h-[180px] flex items-center justify-center bg-indigo-50/30 rounded-[2rem] p-6 border-2 border-dashed border-indigo-100 relative">
-                    
-                    <div id="lock-overlay" class="text-center">
-                        <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-sm text-indigo-300">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
-                        </div>
-                        <p id="lock-text" class="text-indigo-400 font-bold text-sm">ההשראה תתגלה בשעה שקבעת</p>
-                    </div>
-
-                    <div id="quote-display" class="hidden text-center scale-in">
-                        <p id="quote-content" class="text-xl md:text-2xl font-bold text-slate-700 leading-tight italic"></p>
-                        <button onclick="share()" class="mt-6 flex items-center gap-2 mx-auto text-indigo-600 font-bold text-xs bg-white px-4 py-2 rounded-full shadow-sm">
-                            שתף הצלחה
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <footer class="p-6 bg-slate-50 text-[10px] text-slate-400 text-center leading-relaxed">
-            <p>חובה להוסיף למסך הבית ולהשאיר פתוח ברקע</p>
-            <p>© 2025 רגע של שקט</p>
-        </footer>
-    </div>
-
-    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-2xl font-bold text-sm opacity-0 transition-all pointer-events-none">
-        המערכת הופעלה! ✨
     </div>
 
     <script>
@@ -118,109 +57,99 @@
             "כל יום הוא הזדמנות שנייה.",
             "אל תספור את הימים, גרום לימים להיספר.",
             "ההצלחה היא לא סופית, והכישלון אינו גורלי.",
-            "מה שאתה עושה היום יכול לשפר את כל המחרים שלך.",
-            "אל תחכה להזדמנות, צור אותה.",
-            "השינוי מתחיל בך.",
-            "גם מסע של אלף מייל מתחיל בצעד אחד קטן.",
-            "תאמין שאתה יכול, ואתה כבר בחצי הדרך.",
-            "אתה חזק יותר ממה שאתה חושב.",
-            "תהיה אדיב לעצמך היום."
+            "האנרגיה שלך היא המגנט שלך."
         ];
 
-        // טעינת הגדרות
-        const timeInput = document.getElementById('time-input');
-        timeInput.value = localStorage.getItem('reminderTime') || '08:00';
+        // טעינת שעה שמורה
+        document.getElementById('notifyTime').value = localStorage.getItem('userTime') || '08:00';
 
-        function updateUI() {
-            const now = new Date();
-            const currentStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
-            const targetTime = timeInput.value;
-
-            // תאריך
-            const options = { weekday: 'long', day: 'numeric', month: 'long' };
-            document.getElementById('current-date').innerText = now.toLocaleDateString('he-IL', options);
-
-            // בחירת משפט
-            const startOfYear = new Date(now.getFullYear(), 0, 0);
-            const dayIdx = Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24));
-            const quote = quotes[dayIdx % quotes.length];
-
-            // מצב נעילה
-            if (currentStr >= targetTime) {
-                document.getElementById('lock-overlay').classList.add('hidden');
-                document.getElementById('quote-display').classList.remove('hidden');
-                document.getElementById('quote-content').innerText = `"${quote}"`;
-                
-                // שליחת התראה
-                if (currentStr === targetTime && localStorage.getItem('lastNotified') !== now.toDateString()) {
-                    notify('ההשראה היומית שלך כאן ✨', quote);
-                    localStorage.setItem('lastNotified', now.toDateString());
+        async function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    const swCode = `
+                        self.addEventListener('install', e => self.skipWaiting());
+                        self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+                        self.addEventListener('notificationclick', e => {
+                            e.notification.close();
+                            e.waitUntil(clients.openWindow(self.location.origin));
+                        });
+                    `;
+                    const blob = new Blob([swCode], { type: 'application/javascript' });
+                    const swUrl = URL.createObjectURL(blob);
+                    await navigator.serviceWorker.register(swUrl);
+                    return true;
+                } catch (e) {
+                    console.error('SW Error', e);
+                    return false;
                 }
-            } else {
-                document.getElementById('lock-overlay').classList.remove('hidden');
-                document.getElementById('quote-display').classList.add('hidden');
-                document.getElementById('lock-text').innerText = `ההשראה תתגלה בשעה ${targetTime}`;
             }
-
-            // עדכון נורות סטטוס
-            checkStatus();
+            return false;
         }
 
-        function checkStatus() {
-            // הרשאות
-            if (Notification.permission === 'granted') {
-                document.getElementById('dot-perm').className = 'w-2 h-2 rounded-full bg-green-500';
-            }
-            // מסך בית
-            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-            if (isStandalone) {
-                document.getElementById('dot-home').className = 'w-2 h-2 rounded-full bg-green-500';
-            }
-        }
-
-        function activateSystem() {
-            localStorage.setItem('reminderTime', timeInput.value);
+        async function enableNotifications() {
+            const status = document.getElementById('status');
+            const time = document.getElementById('notifyTime').value;
+            localStorage.setItem('userTime', time);
             localStorage.removeItem('lastNotified');
+
+            // בקשת הרשאה - חייב לקרות בלחיצה ידנית
+            const permission = await Notification.requestPermission();
             
-            // הפעלת האודיו השקט (הטריק לשמירת רקע)
-            const audio = document.getElementById('bg-audio');
-            audio.play().then(() => {
-                document.getElementById('dot-bg').className = 'w-2 h-2 rounded-full bg-green-500 active-dot';
-            }).catch(e => console.log("Audio block"));
+            if (permission !== 'granted') {
+                status.innerText = "שגיאה: לא אישרת התראות בדפדפן";
+                status.classList.add('text-red-500');
+                return;
+            }
 
-            // בקשת התראות
-            Notification.requestPermission();
+            status.innerText = "המערכת פעילה! שולח התראת בדיקה...";
+            status.classList.replace('text-gray-400', 'text-green-500');
 
-            // טוסט אישור
-            const toast = document.getElementById('toast');
-            toast.style.opacity = '1';
-            setTimeout(() => toast.style.opacity = '0', 3000);
+            await registerServiceWorker();
 
-            updateUI();
+            // התראת בדיקה מיידית
+            setTimeout(() => {
+                sendNotification("מעולה! 🎉", "ההתראות שלך עובדות. המשפט יגיע בשעה שקבעת.");
+            }, 2000);
         }
 
-        function notify(title, body) {
-            if (Notification.permission === 'granted') {
-                new Notification(title, { 
-                    body, 
-                    icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' 
-                });
+        function sendNotification(title, body) {
+            const options = {
+                body,
+                icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+                vibrate: [200, 100, 200]
+            };
+
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification(title, options);
+                }).catch(() => new Notification(title, options));
+            } else {
+                new Notification(title, options);
             }
         }
 
-        function testNow() {
-            notify('בדיקת מערכת ✅', 'ההתראות שלך עובדות מצוין!');
-        }
+        function checkTime() {
+            const now = new Date();
+            const currentTime = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+            const targetTime = localStorage.getItem('userTime');
+            const lastNotified = localStorage.getItem('lastNotified');
 
-        function share() {
-            const text = document.getElementById('quote-content').innerText;
-            if (navigator.share) {
-                navigator.share({ title: 'העצמה יומית', text, url: window.location.href });
+            if (currentTime === targetTime && lastNotified !== now.toDateString()) {
+                const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+                const quote = quotes[dayOfYear % quotes.length];
+                
+                sendNotification("ההשראה היומית שלך ✨", quote);
+                localStorage.setItem('lastNotified', now.toDateString());
+                
+                // הצגת המשפט באפליקציה
+                document.getElementById('quoteArea').classList.remove('hidden');
+                document.getElementById('quoteText').innerText = `"${quote}"`;
             }
         }
 
-        setInterval(updateUI, 20000);
-        window.onload = updateUI;
+        // בדיקה כל 30 שניות
+        setInterval(checkTime, 30000);
+        window.onload = registerServiceWorker;
     </script>
 </body>
 </html>
