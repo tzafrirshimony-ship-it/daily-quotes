@@ -22,10 +22,10 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
         .locked-state {
-            filter: blur(15px);
+            filter: blur(20px);
             user-select: none;
             pointer-events: none;
-            opacity: 0.4;
+            opacity: 0.3;
         }
         .fade-in {
             animation: fadeIn 0.8s ease-out forwards;
@@ -39,13 +39,18 @@
 <body>
 
     <div class="w-full max-w-md bg-white rounded-[2.5rem] p-8 quote-card text-center fade-in">
+        <!-- Notification Status Check -->
+        <div id="setup-check" class="mb-4 p-3 bg-amber-50 rounded-xl text-xs text-amber-700 hidden">
+            <p id="setup-message"></p>
+        </div>
+
         <div class="mb-6 pb-6 border-b border-gray-100 text-right">
             <label class="block text-sm font-bold text-gray-500 mb-2">מתי תרצה לקבל את המשפט?</label>
             <div class="flex gap-2 justify-center">
                 <input type="time" id="reminder-time" class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-lg focus:ring-2 focus:ring-blue-500 outline-none">
                 <button onclick="saveSettings()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-700 transition">שמור</button>
             </div>
-            <button onclick="testNotification()" class="mt-4 text-xs text-blue-500 underline w-full text-center">שלח התראת בדיקה עכשיו</button>
+            <button id="test-btn" onclick="testNotification()" class="mt-4 text-xs text-blue-500 underline w-full text-center">שלח התראת בדיקה</button>
         </div>
 
         <header class="mb-8">
@@ -54,13 +59,13 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>
-            <h1 class="text-2xl font-bold text-gray-800 tracking-tight" id="app-title">ממתין לרגע הנכון...</h1>
+            <h1 class="text-2xl font-bold text-gray-800 tracking-tight" id="app-title">המשפט היומי שלך</h1>
             <p id="date-display" class="text-sm font-medium text-gray-400 mt-1"></p>
         </header>
 
         <main class="mb-10 min-h-[160px] flex items-center justify-center relative">
             <div id="lock-overlay" class="absolute inset-0 z-20 flex flex-col items-center justify-center">
-                <div class="bg-white/80 p-4 rounded-2xl shadow-sm border border-gray-100">
+                <div class="bg-white/90 p-4 rounded-2xl shadow-sm border border-gray-100">
                     <p class="text-blue-600 font-bold" id="lock-message">המשפט יתגלה בשעה שקבעת</p>
                 </div>
             </div>
@@ -97,7 +102,7 @@
             "תהיה אדיב לעצמך."
         ];
 
-        // Register Service Worker correctly for notifications
+        // Improved Service Worker registration for better reliability
         if ('serviceWorker' in navigator) {
             const swCode = `
                 self.addEventListener('install', event => self.skipWaiting());
@@ -109,7 +114,9 @@
             `;
             const blob = new Blob([swCode], { type: 'application/javascript' });
             const swUrl = URL.createObjectURL(blob);
-            navigator.serviceWorker.register(swUrl).catch(err => console.log('SW error:', err));
+            navigator.serviceWorker.register(swUrl).then(reg => {
+                console.log('SW Registered');
+            }).catch(err => console.log('SW Error', err));
         }
 
         function saveSettings() {
@@ -118,46 +125,64 @@
                 localStorage.setItem('reminderTime', timeVal);
                 showToast("השעה נשמרה!");
                 
+                // Reset daily notification flag when changing time
+                localStorage.removeItem('lastNotifiedDate');
+                
                 if (window.Notification && Notification.permission !== 'granted') {
-                    Notification.requestPermission().then(permission => {
-                        if (permission === 'granted') showToast("התראות מאושרות!");
-                    });
+                    Notification.requestPermission().then(checkSetup);
                 }
                 updateUI();
             }
         }
 
-        function testNotification() {
+        function checkSetup() {
+            const setupBox = document.getElementById('setup-check');
+            const setupMsg = document.getElementById('setup-message');
+            
             if (!("Notification" in window)) {
-                showToast("הדפדפן לא תומך בהתראות");
+                setupBox.classList.remove('hidden');
+                setupMsg.innerText = "הדפדפן שלך לא תומך בהתראות.";
                 return;
             }
-            
-            if (Notification.permission === "granted") {
-                sendNotification("בדיקת מערכת", "התראות עובדות באפליקציה שלך!");
-            } else {
+
+            if (Notification.permission === 'denied') {
+                setupBox.classList.remove('hidden');
+                setupMsg.innerText = "חסמת התראות. יש לאשר אותן בהגדרות האתר.";
+                return;
+            }
+
+            // Check if added to home screen (simplified check)
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+            if (!isStandalone && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                setupBox.classList.remove('hidden');
+                setupMsg.innerText = "באייפון, חובה להוסיף את האפליקציה למסך הבית כדי לקבל התראות.";
+                return;
+            }
+
+            setupBox.classList.add('hidden');
+        }
+
+        function testNotification() {
+            if (Notification.permission !== "granted") {
                 Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        sendNotification("בדיקת מערכת", "עכשיו תוכל לקבל משפטים!");
-                    } else {
-                        showToast("עליך לאשר התראות בהגדרות הדפדפן");
-                    }
+                    if (permission === "granted") sendInstantNotification("בדיקת מערכת", "מעולה! ההתראות מאושרות.");
+                    else showToast("יש לאשר התראות כדי לבדוק.");
                 });
+            } else {
+                sendInstantNotification("בדיקת מערכת", "התראות עובדות באפליקציה שלך!");
             }
         }
 
-        function sendNotification(title, body) {
+        function sendInstantNotification(title, body) {
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(reg => {
                     reg.showNotification(title, {
                         body: body,
                         icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                        badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                        vibrate: [200, 100, 200]
+                        vibrate: [200, 100, 200],
+                        tag: 'test-notification'
                     });
                 });
-            } else {
-                new Notification(title, { body });
             }
         }
 
@@ -176,16 +201,18 @@
             const startOfYear = new Date(now.getFullYear(), 0, 0);
             const diff = now - startOfYear;
             const dayIdx = Math.floor(diff / (1000 * 60 * 60 * 24));
-            document.getElementById('quote-text').innerText = quotes[dayIdx % quotes.length];
+            const currentQuote = quotes[dayIdx % quotes.length];
+            document.getElementById('quote-text').innerText = currentQuote;
 
             if (currentTimeStr >= savedTime) {
                 unlockApp();
-                // Notify only exactly when the time hits and we haven't notified today
-                const lastNotifiedDate = localStorage.getItem('lastNotifiedDate');
-                const todayStr = now.toDateString();
                 
-                if (currentTimeStr === savedTime && lastNotifiedDate !== todayStr) {
-                    sendNotification('העצמה יומית', 'המשפט היומי שלך מחכה לך!');
+                // Logic to trigger notification once a day at the specific minute
+                const todayStr = now.toDateString();
+                const lastNotified = localStorage.getItem('lastNotifiedDate');
+                
+                if (currentTimeStr === savedTime && lastNotified !== todayStr) {
+                    sendInstantNotification('העצמה יומית', 'המשפט היומי שלך מחכה לך!');
                     localStorage.setItem('lastNotifiedDate', todayStr);
                 }
             } else {
@@ -232,8 +259,11 @@
             setTimeout(() => toast.style.opacity = '0', 3000);
         }
 
-        window.onload = updateUI;
-        setInterval(updateUI, 30000);
+        window.onload = () => {
+            updateUI();
+            checkSetup();
+        };
+        setInterval(updateUI, 20000); // Check more frequently
     </script>
 </body>
 </html>
