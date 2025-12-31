@@ -29,7 +29,7 @@
             box-shadow: 0 10px 40px rgba(0,0,0,0.15);
         }
         .locked-state {
-            filter: blur(25px);
+            filter: blur(20px);
             user-select: none;
             pointer-events: none;
             opacity: 0.2;
@@ -41,18 +41,27 @@
             display: inline-block;
             margin-left: 8px;
         }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .checking { animation: pulse 1s infinite; }
     </style>
 </head>
 <body>
 
     <div class="w-full max-w-md bg-white rounded-[2.5rem] p-8 quote-card text-center relative overflow-hidden">
         
-        <!-- Debug Panel -->
+        <!-- לוח אבחון טכני -->
         <div id="debug-panel" class="mb-6 p-4 bg-slate-50 rounded-2xl text-right text-[11px] border border-slate-200">
-            <h3 class="font-bold mb-2 text-slate-700 border-b pb-1">אבחון טכני:</h3>
+            <h3 class="font-bold mb-2 text-slate-700 border-b pb-1">אבחון מערכת:</h3>
             <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                    <span>שירות רקע (Service Worker)</span>
+                    <span>פרוטוקול אבטחה (HTTPS)</span>
+                    <span id="https-status" class="status-dot bg-red-400"></span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span>שירות רקע (Worker)</span>
                     <span id="sw-status" class="status-dot bg-red-400"></span>
                 </div>
                 <div class="flex items-center justify-between">
@@ -60,18 +69,18 @@
                     <span id="perm-status" class="status-dot bg-red-400"></span>
                 </div>
                 <div class="flex items-center justify-between">
-                    <span>פועל כאפליקציה (Standalone)</span>
+                    <span>מצב אפליקציה (Home Screen)</span>
                     <span id="standalone-status" class="status-dot bg-red-400"></span>
                 </div>
             </div>
-            <button onclick="forceRegisterSW()" class="mt-4 w-full py-2 bg-blue-50 text-blue-600 font-bold rounded-lg border border-blue-100 hover:bg-blue-100 transition active:scale-95">
-                נסה להפעיל שירות רקע שוב
+            <div id="debug-msg" class="mt-3 p-2 bg-red-50 text-red-600 rounded-lg hidden text-center font-bold"></div>
+            <button onclick="attemptSetup()" class="mt-4 w-full py-2 bg-blue-50 text-blue-600 font-bold rounded-lg border border-blue-100 hover:bg-blue-100 transition active:scale-95">
+                נסה להפעיל שירותים שוב
             </button>
-            <p id="error-log" class="mt-2 text-red-500 font-medium hidden"></p>
         </div>
 
         <div class="mb-6 pb-6 border-b border-slate-100 text-right">
-            <label class="block text-sm font-bold text-slate-500 mb-2">בחר שעת קבלת משפט:</label>
+            <label class="block text-sm font-bold text-slate-500 mb-2">שעת התראה:</label>
             <div class="flex gap-2 justify-center">
                 <input type="time" id="reminder-time" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-lg focus:ring-2 focus:ring-blue-500 outline-none">
                 <button onclick="saveSettings()" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold hover:bg-blue-700 transition active:scale-95">שמור</button>
@@ -91,7 +100,7 @@
 
         <main class="mb-10 min-h-[140px] flex items-center justify-center relative">
             <div id="lock-overlay" class="absolute inset-0 z-20 flex items-center justify-center">
-                <div class="bg-white/80 p-5 rounded-3xl shadow-sm border border-slate-50">
+                <div class="bg-white/90 p-5 rounded-3xl shadow-sm border border-slate-50">
                     <p class="text-blue-600 font-bold" id="lock-message">ההשראה תגיע בשעה שקבעת</p>
                 </div>
             </div>
@@ -124,16 +133,34 @@
             "השינוי מתחיל בך.",
             "גם מסע של אלף מייל מתחיל בצעד אחד קטן.",
             "תאמין שאתה יכול, ואתה כבר בחצי הדרך.",
-            "אתה חזק יותר ממה שאתה חוכב.",
+            "אתה חזק יותר ממה שאתה חושב.",
             "תהיה אדיב לעצמך."
         ];
 
-        // שיפור: שימוש ב-Data URL במקום Blob עבור תאימות גבוהה יותר
-        async function forceRegisterSW() {
-            if (!('serviceWorker' in navigator)) {
-                logError("דפדפן זה אינו תומך בשירותי רקע.");
+        // בדיקה אם אנחנו בתוך IFRAME (תצוגה מקדימה)
+        const isIframe = window.self !== window.top;
+
+        async function attemptSetup() {
+            const debugMsg = document.getElementById('debug-msg');
+            debugMsg.classList.add('hidden');
+
+            if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                logDebug("חובה להשתמש ב-HTTPS כדי שהתראות יעבדו.");
                 return;
             }
+            document.getElementById('https-status').classList.replace('bg-red-400', 'bg-green-400');
+
+            if (isIframe) {
+                logDebug("לא ניתן להפעיל שירותי רקע בתוך תצוגה מקדימה. העלה ל-GitHub ובדוק שם.");
+                return;
+            }
+
+            await registerServiceWorker();
+            updateStatus();
+        }
+
+        async function registerServiceWorker() {
+            if (!('serviceWorker' in navigator)) return;
 
             const swCode = `
                 self.addEventListener('install', e => self.skipWaiting());
@@ -146,44 +173,32 @@
                     }));
                 });
             `;
-            
-            // המרה ל-Base64 כדי להשתמש ב-Data URL
-            const swDataUrl = 'data:application/javascript;base64,' + btoa(unescape(encodeURIComponent(swCode)));
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(blob);
 
             try {
-                const registration = await navigator.serviceWorker.register(swDataUrl, { scope: './' });
-                console.log('SW registered:', registration);
-                updateStatus();
-                showToast("שירות רקע הופעל!");
+                await navigator.serviceWorker.register(swUrl);
+                document.getElementById('sw-status').classList.replace('bg-red-400', 'bg-green-400');
             } catch (err) {
-                console.error('SW registration failed:', err);
-                logError("שגיאת רישום: " + err.message);
+                console.error('SW Error:', err);
+                logDebug("שירות הרקע נחסם עקב מדיניות אבטחה.");
             }
         }
 
-        function logError(msg) {
-            const el = document.getElementById('error-log');
+        function logDebug(msg) {
+            const el = document.getElementById('debug-msg');
             el.innerText = msg;
             el.classList.remove('hidden');
         }
 
         function updateStatus() {
-            // Standalone check
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
             if (isStandalone) {
                 document.getElementById('standalone-status').classList.replace('bg-red-400', 'bg-green-400');
             }
 
-            // Notification check
             if (window.Notification && Notification.permission === 'granted') {
                 document.getElementById('perm-status').classList.replace('bg-red-400', 'bg-green-400');
-            }
-
-            // Service Worker check
-            if (navigator.serviceWorker && (navigator.serviceWorker.controller || navigator.serviceWorker.getRegistration())) {
-                navigator.serviceWorker.getRegistration().then(reg => {
-                    if (reg) document.getElementById('sw-status').classList.replace('bg-red-400', 'bg-green-400');
-                });
             }
         }
 
@@ -191,11 +206,14 @@
             const timeVal = document.getElementById('reminder-time').value;
             if (timeVal) {
                 localStorage.setItem('reminderTime', timeVal);
-                showToast("השעה נשמרה!");
+                showToast("הגדרות נשמרו!");
                 localStorage.removeItem('lastNotifiedDate');
                 
                 if (window.Notification) {
-                    Notification.requestPermission().then(updateStatus);
+                    Notification.requestPermission().then(perm => {
+                        updateStatus();
+                        if (perm === 'denied') alert("התראות חסומות בהגדרות המכשיר.");
+                    });
                 }
                 updateUI();
             }
@@ -203,34 +221,32 @@
 
         function testNotification() {
             if (Notification.permission === 'granted') {
-                sendNotification("בדיקת מערכת ✅", "ההתראות שלך עובדות מצוין!");
+                sendNotification("בדיקת מערכת ✅", "מעולה! ההתראות שלך עובדות.");
             } else {
-                Notification.requestPermission().then(permission => {
-                    if (permission === 'granted') {
-                        sendNotification("התראות אושרו", "עכשיו הכל מוכן!");
-                        updateStatus();
-                    } else {
-                        alert("חובה לאשר התראות בהגדרות המכשיר.");
-                    }
+                Notification.requestPermission().then(p => {
+                    if (p === 'granted') sendNotification("בדיקת מערכת ✅", "עכשיו זה עובד!");
+                    else alert("יש לאשר התראות בהגדרות.");
+                    updateStatus();
                 });
             }
         }
 
         function sendNotification(title, body) {
-            if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+            if (Notification.permission !== 'granted') return;
+
+            const options = {
+                body: body,
+                icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+                badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+                vibrate: [200, 100, 200]
+            };
+
+            if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(reg => {
-                    reg.showNotification(title, {
-                        body: body,
-                        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                        badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                        vibrate: [200, 100, 200]
-                    }).catch(err => {
-                        // Fallback to simple notification if SW fails
-                        new Notification(title, { body });
-                    });
-                });
-            } else if (Notification.permission === 'granted') {
-                new Notification(title, { body });
+                    reg.showNotification(title, options);
+                }).catch(() => new Notification(title, options));
+            } else {
+                new Notification(title, options);
             }
         }
 
@@ -281,12 +297,10 @@
         }
 
         window.onload = () => {
-            // הוספת השהיה קלה לרישום כדי לוודא שהדף נטען לגמרי
-            setTimeout(forceRegisterSW, 1000);
-            updateStatus();
+            attemptSetup();
             updateUI();
         };
-        setInterval(() => { updateUI(); updateStatus(); }, 15000);
+        setInterval(updateUI, 15000);
     </script>
 </body>
 </html>
