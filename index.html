@@ -39,12 +39,13 @@
 <body>
 
     <div class="w-full max-w-md bg-white rounded-[2.5rem] p-8 quote-card text-center fade-in">
-        <div class="mb-6 pb-6 border-b border-gray-100">
+        <div class="mb-6 pb-6 border-b border-gray-100 text-right">
             <label class="block text-sm font-bold text-gray-500 mb-2">מתי תרצה לקבל את המשפט?</label>
             <div class="flex gap-2 justify-center">
                 <input type="time" id="reminder-time" class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-lg focus:ring-2 focus:ring-blue-500 outline-none">
                 <button onclick="saveSettings()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-700 transition">שמור</button>
             </div>
+            <button onclick="testNotification()" class="mt-4 text-xs text-blue-500 underline w-full text-center">שלח התראת בדיקה עכשיו</button>
         </div>
 
         <header class="mb-8">
@@ -76,7 +77,7 @@
         </footer>
     </div>
 
-    <div id="toast" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-8 py-3 rounded-full opacity-0 transition-all duration-300 pointer-events-none text-sm font-bold">
+    <div id="toast" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-8 py-3 rounded-full opacity-0 transition-all duration-300 pointer-events-none text-sm font-bold z-50">
         הגדרות נשמרו!
     </div>
 
@@ -89,38 +90,74 @@
             "ההצלחה היא לא סופית, והכישלון אינו גורלי.",
             "מה שאתה עושה היום יכול לשפר את כל המחרים שלך.",
             "אל תחכה להזדמנות, צור אותה.",
-            "השמיים הם לא הגבול, הם רק ההתחלה.",
             "השינוי מתחיל בך.",
             "גם מסע של אלף מייל מתחיל בצעד אחד קטן.",
             "תאמין שאתה יכול, ואתה כבר בחצי הדרך.",
-            "הדרך הכי טובה לחזות את העתיד היא ליצור אותו.",
             "אתה חזק יותר ממה שאתה חושב.",
             "תהיה אדיב לעצמך."
         ];
 
-        // Register Service Worker from Blob for background notification support
+        // Register Service Worker correctly for notifications
         if ('serviceWorker' in navigator) {
-            const swContent = `
-                self.addEventListener('install', (e) => self.skipWaiting());
-                self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
-                self.addEventListener('notificationclick', (e) => {
-                    e.notification.close();
-                    e.waitUntil(clients.openWindow(self.location.origin));
+            const swCode = `
+                self.addEventListener('install', event => self.skipWaiting());
+                self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
+                self.addEventListener('notificationclick', event => {
+                    event.notification.close();
+                    event.waitUntil(clients.openWindow(self.location.origin));
                 });
             `;
-            const blob = new Blob([swContent], { type: 'application/javascript' });
-            navigator.serviceWorker.register(URL.createObjectURL(blob));
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(swUrl).catch(err => console.log('SW error:', err));
         }
 
         function saveSettings() {
             const timeVal = document.getElementById('reminder-time').value;
             if (timeVal) {
                 localStorage.setItem('reminderTime', timeVal);
-                showToast("השעה עודכנה!");
-                if (Notification.permission === 'default') {
-                    Notification.requestPermission();
+                showToast("השעה נשמרה!");
+                
+                if (window.Notification && Notification.permission !== 'granted') {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') showToast("התראות מאושרות!");
+                    });
                 }
                 updateUI();
+            }
+        }
+
+        function testNotification() {
+            if (!("Notification" in window)) {
+                showToast("הדפדפן לא תומך בהתראות");
+                return;
+            }
+            
+            if (Notification.permission === "granted") {
+                sendNotification("בדיקת מערכת", "התראות עובדות באפליקציה שלך!");
+            } else {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        sendNotification("בדיקת מערכת", "עכשיו תוכל לקבל משפטים!");
+                    } else {
+                        showToast("עליך לאשר התראות בהגדרות הדפדפן");
+                    }
+                });
+            }
+        }
+
+        function sendNotification(title, body) {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification(title, {
+                        body: body,
+                        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+                        badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+                        vibrate: [200, 100, 200]
+                    });
+                });
+            } else {
+                new Notification(title, { body });
             }
         }
 
@@ -128,7 +165,7 @@
             const now = new Date();
             const currentHour = now.getHours().toString().padStart(2, '0');
             const currentMin = now.getMinutes().toString().padStart(2, '0');
-            const currentTime = `${currentHour}:${currentMin}`;
+            const currentTimeStr = `${currentHour}:${currentMin}`;
             
             const savedTime = localStorage.getItem('reminderTime') || "08:00";
             document.getElementById('reminder-time').value = savedTime;
@@ -141,27 +178,18 @@
             const dayIdx = Math.floor(diff / (1000 * 60 * 60 * 24));
             document.getElementById('quote-text').innerText = quotes[dayIdx % quotes.length];
 
-            if (currentTime >= savedTime) {
+            if (currentTimeStr >= savedTime) {
                 unlockApp();
-                if (currentTime === savedTime && !window.alreadyNotified) {
-                    sendNotification();
+                // Notify only exactly when the time hits and we haven't notified today
+                const lastNotifiedDate = localStorage.getItem('lastNotifiedDate');
+                const todayStr = now.toDateString();
+                
+                if (currentTimeStr === savedTime && lastNotifiedDate !== todayStr) {
+                    sendNotification('העצמה יומית', 'המשפט היומי שלך מחכה לך!');
+                    localStorage.setItem('lastNotifiedDate', todayStr);
                 }
             } else {
                 lockApp(savedTime);
-                window.alreadyNotified = false;
-            }
-        }
-
-        function sendNotification() {
-            if (Notification.permission === 'granted') {
-                navigator.serviceWorker.ready.then(registration => {
-                    registration.showNotification('העצמה יומית', {
-                        body: 'המשפט היומי שלך מחכה לך!',
-                        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                        vibrate: [200, 100, 200]
-                    });
-                    window.alreadyNotified = true;
-                });
             }
         }
 
@@ -170,7 +198,7 @@
             document.getElementById('lock-overlay').classList.add('hidden');
             document.getElementById('action-buttons').classList.remove('hidden');
             document.getElementById('app-title').innerText = "ההשראה היומית שלך";
-            document.getElementById('status-icon').className = "w-16 h-16 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transition-colors duration-500";
+            document.getElementById('status-icon').className = "w-16 h-16 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg";
             document.getElementById('icon-svg').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />';
         }
 
@@ -180,7 +208,7 @@
             document.getElementById('action-buttons').classList.add('hidden');
             document.getElementById('app-title').innerText = "ממתין לרגע הנכון";
             document.getElementById('lock-message').innerText = `המשפט יתגלה בשעה ${time}`;
-            document.getElementById('status-icon').className = "w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transition-colors duration-500";
+            document.getElementById('status-icon').className = "w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg";
             document.getElementById('icon-svg').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />';
         }
 
@@ -201,7 +229,7 @@
             const toast = document.getElementById('toast');
             toast.innerText = msg;
             toast.style.opacity = '1';
-            setTimeout(() => toast.style.opacity = '0', 2500);
+            setTimeout(() => toast.style.opacity = '0', 3000);
         }
 
         window.onload = updateUI;
