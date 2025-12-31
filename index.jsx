@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// משפטי העצמה
+// רשימת משפטים מורחבת
 const QUOTES = [
   "הדרך היחידה לעשות עבודה נהדרת היא לאהוב את מה שאתה עושה.",
   "העתיד שייך לאלו המאמינים ביופי של החלומות שלהם.",
@@ -13,7 +13,9 @@ const QUOTES = [
   "גם מסע של אלף מייל מתחיל בצעד אחד קטן.",
   "תאמין שאתה יכול, ואתה כבר בחצי הדרך.",
   "אתה חזק יותר ממה שאתה חושב.",
-  "תהיה אדיב לעצמך היום."
+  "תהיה אדיב לעצמך היום.",
+  "היום הוא התחלה חדשה לכל מה שתרצה.",
+  "האנרגיה שלך היא המגנט שלך."
 ];
 
 const App = () => {
@@ -21,12 +23,47 @@ const App = () => {
   const [isLocked, setIsLocked] = useState(true);
   const [quote, setQuote] = useState('');
   const [showToast, setShowToast] = useState(false);
-  const [bgActive, setBgActive] = useState(false);
+  const [bgStatus, setBgStatus] = useState('idle'); // idle, active, denied, error
+  const [notifPermission, setNotifPermission] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'denied');
   const audioRef = useRef(null);
+  const swRegistration = useRef(null);
+
+  // רישום Service Worker עם טיפול בשגיאות משופר
+  useEffect(() => {
+    const registerSW = async () => {
+      if ('serviceWorker' in navigator) {
+        try {
+          // שימוש ב-Data URL במקום Blob עבור תאימות גבוהה יותר בסביבות מסוימות
+          const swCode = `
+            self.addEventListener('install', e => self.skipWaiting());
+            self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+            self.addEventListener('notificationclick', e => {
+              e.notification.close();
+              e.waitUntil(clients.matchAll({type: 'window'}).then(clients => {
+                if (clients.length > 0) return clients[0].focus();
+                return clients.openWindow('/');
+              }));
+            });
+          `;
+          const blob = new Blob([swCode], { type: 'application/javascript' });
+          const swUrl = URL.createObjectURL(blob);
+          
+          const reg = await navigator.serviceWorker.register(swUrl);
+          swRegistration.current = reg;
+          console.log('Service Worker registered successfully');
+        } catch (error) {
+          console.warn('Service Worker registration failed, using fallback notification method:', error);
+          setBgStatus('error');
+        }
+      }
+    };
+
+    registerSW();
+  }, []);
 
   useEffect(() => {
     updateQuoteStatus();
-    const interval = setInterval(updateQuoteStatus, 30000); // בדיקה כל 30 שניות
+    const interval = setInterval(updateQuoteStatus, 15000); 
     return () => clearInterval(interval);
   }, [time]);
 
@@ -34,7 +71,6 @@ const App = () => {
     const now = new Date();
     const currentStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
     
-    // חישוב משפט לפי היום בשנה
     const start = new Date(now.getFullYear(), 0, 0);
     const diff = now - start;
     const dayIdx = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -43,7 +79,7 @@ const App = () => {
 
     if (currentStr >= time) {
       setIsLocked(false);
-      // בדיקה אם כבר שלחנו התראה היום
+      
       const lastNotified = localStorage.getItem('lastNotifiedDate');
       if (currentStr === time && lastNotified !== now.toDateString()) {
         triggerNotification(dailyQuote);
@@ -55,116 +91,148 @@ const App = () => {
   };
 
   const triggerNotification = (text) => {
-    if (Notification.permission === 'granted') {
-      new Notification('ההשראה היומית שלך כאן ✨', {
-        body: text,
-        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'
-      });
+    const title = 'ההשראה היומית שלך ✨';
+    const options = {
+      body: text,
+      icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+      badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+      vibrate: [200, 100, 200],
+      requireInteraction: true
+    };
+
+    if (notifPermission === 'granted') {
+      // מנסה קודם דרך ה-Service Worker
+      if (swRegistration.current) {
+        swRegistration.current.showNotification(title, options);
+      } else {
+        // Fallback להתראה רגילה אם ה-SW לא זמין
+        new Notification(title, options);
+      }
     }
   };
 
-  const handleSave = () => {
+  const handleInitialClick = async () => {
+    if (typeof Notification !== 'undefined') {
+      const permission = await Notification.requestPermission();
+      setNotifPermission(permission);
+    }
+
+    if (audioRef.current) {
+      try {
+        await audioRef.current.play();
+        setBgStatus('active');
+      } catch (e) {
+        console.error("Audio playback failed:", e);
+        setBgStatus('denied');
+      }
+    }
+    
     localStorage.setItem('reminderTime', time);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
-    
-    if (Notification.permission !== 'granted') {
-      Notification.requestPermission();
+    updateQuoteStatus();
+  };
+
+  const testNow = () => {
+    if (notifPermission !== 'granted') {
+      Notification.requestPermission().then(setNotifPermission);
     }
-    
-    // הפעלת "מצב רקע" - דורש אינטראקציה של המשתמש
-    if (audioRef.current) {
-      audioRef.current.play().catch(e => console.log("Audio play blocked"));
-      setBgActive(true);
-    }
+    triggerNotification("בדיקת מערכת: ההתראות שלך עובדות! 🚀");
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8] flex items-center justify-center p-6 font-sans text-slate-800" dir="rtl">
-      {/* Hidden audio to keep the app alive in background */}
-      <audio ref={audioRef} loop>
+    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 font-sans text-slate-800" dir="rtl">
+      {/* סאונד שקט לשמירה על אפליקציה פעילה ברקע */}
+      <audio ref={audioRef} loop preload="auto">
         <source src="data:audio/wav;base64,UklGRigAAABXQVZFAmZtdCAQAAAAEAAKAnABAAgAAABhZGF0YQAAAAA=" type="audio/wav" />
       </audio>
 
-      <div className="w-full max-w-md bg-white rounded-[3rem] shadow-2xl overflow-hidden transition-all duration-700">
+      <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
         
-        {/* Header Section */}
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-10 text-white text-center relative">
-          <div className="absolute top-4 left-4">
-             <div className={`w-3 h-3 rounded-full ${bgActive ? 'bg-green-400 animate-pulse' : 'bg-slate-300'}`} title={bgActive ? 'Background mode active' : 'Background mode idle'}></div>
+        {/* לוח בקרה טכני */}
+        <div className="bg-slate-900 p-4 text-[10px] text-slate-400 grid grid-cols-3 gap-2 text-center">
+          <div className="flex flex-col items-center">
+            <div className={`w-2 h-2 rounded-full mb-1 ${notifPermission === 'granted' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span>הרשאות</span>
           </div>
-          <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-md">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.344l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
-            </svg>
+          <div className="flex flex-col items-center">
+            <div className={`w-2 h-2 rounded-full mb-1 ${bgStatus === 'active' ? 'bg-green-500 animate-pulse' : bgStatus === 'error' ? 'bg-yellow-500' : 'bg-orange-500'}`}></div>
+            <span>מצב רקע</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">רגע של שקט</h1>
-          <p className="text-indigo-100 text-sm mt-2">ההשראה היומית שלך מחכה לרגע הנכון</p>
+          <div className="flex flex-col items-center">
+            <div className={`w-2 h-2 rounded-full mb-1 ${typeof window !== 'undefined' && (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span>מסך בית</span>
+          </div>
         </div>
 
-        {/* Content Section */}
         <div className="p-8">
-          <div className="mb-8">
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">הגדר שעת הארה</label>
-            <div className="flex gap-3">
-              <input 
-                type="time" 
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-xl font-semibold focus:border-indigo-500 focus:outline-none transition-colors"
-              />
-              <button 
-                onClick={handleSave}
-                className="bg-indigo-600 text-white px-8 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-200"
-              >
-                שמור
-              </button>
-            </div>
-          </div>
+          <header className="text-center mb-10">
+            <h1 className="text-3xl font-black text-indigo-600 mb-2">העצמה יומית</h1>
+            <p className="text-slate-400 text-sm">הגדר שעה וקבל כוח בכל יום</p>
+          </header>
 
-          <div className="relative min-h-[200px] flex items-center justify-center border-2 border-dashed border-slate-100 rounded-[2rem] p-6">
-            {isLocked ? (
-              <div className="text-center space-y-4">
-                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <p className="text-slate-400 font-medium">המשפט יתגלה בשעה {time}</p>
-                <p className="text-[10px] text-slate-300">וודא שהאפליקציה פתוחה ברקע</p>
-              </div>
-            ) : (
-              <div className="text-center animate-fade-in">
-                <svg className="h-8 w-8 text-indigo-100 absolute top-4 right-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M14.017 21L14.017 18C14.017 16.8954 14.9124 16 16.017 16H19.017C19.5693 16 20.017 15.5523 20.017 15V9C20.017 8.44772 19.5693 8 19.017 8H15.017C14.4647 8 14.017 7.55228 14.017 7V3L14.017 3H21.017V15C21.017 18.3137 18.3307 21 15.017 21H14.017ZM3.017 21L3.017 18C3.017 16.8954 3.91243 16 5.017 16H8.017C8.56928 16 9.017 15.5523 9.017 15V9C9.017 8.44772 8.56928 8 8.017 8H4.017C3.46472 8 3.017 7.55228 3.017 7V3L3.017 3H10.017V15C10.017 18.3137 7.33072 21 4.017 21H3.017Z" />
-                </svg>
-                <p className="text-2xl font-bold text-slate-700 leading-tight mb-6">"{quote}"</p>
+          <div className="space-y-6">
+            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+              <label className="block text-xs font-bold text-slate-400 mb-3 text-right uppercase tracking-wider">שעת התראה</label>
+              <div className="flex gap-2">
+                <input 
+                  type="time" 
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  className="flex-1 bg-white border-2 border-slate-200 rounded-2xl px-4 py-3 text-2xl font-bold text-indigo-900 focus:border-indigo-500 outline-none transition-all"
+                />
                 <button 
-                  onClick={() => navigator.share({ title: 'השראה יומית', text: quote, url: window.location.href })}
-                  className="inline-flex items-center gap-2 text-indigo-600 font-bold text-sm hover:underline"
+                  onClick={handleInitialClick}
+                  className="bg-indigo-600 text-white px-6 rounded-2xl font-bold hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-100"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                  </svg>
-                  שתף את האור
+                  הפעל
                 </button>
               </div>
-            )}
+              <button 
+                onClick={testNow}
+                className="w-full mt-4 text-xs text-indigo-400 font-medium underline"
+              >
+                שלח התראת בדיקה עכשיו
+              </button>
+            </div>
+
+            <div className="min-h-[180px] flex items-center justify-center bg-indigo-50/30 rounded-[2.5rem] p-8 border-2 border-dashed border-indigo-100 relative overflow-hidden">
+              {isLocked ? (
+                <div className="text-center group">
+                  <div className="w-14 h-14 bg-white rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-4 text-indigo-300 group-hover:text-indigo-500 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <p className="text-indigo-400 font-bold">ההשראה תתגלה בשעה {time}</p>
+                </div>
+              ) : (
+                <div className="text-center animate-in fade-in zoom-in duration-700">
+                  <p className="text-xl md:text-2xl font-bold text-slate-700 italic leading-relaxed">"{quote}"</p>
+                  <button 
+                    onClick={() => navigator.share({ title: 'העצמה יומית', text: quote, url: window.location.href })}
+                    className="mt-6 flex items-center gap-2 mx-auto text-indigo-600 font-bold text-sm bg-white px-4 py-2 rounded-full shadow-sm"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                    שתף הצלחה
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Footer info */}
-        <div className="bg-slate-50 p-6 text-center">
-           <p className="text-[10px] text-slate-400 leading-relaxed uppercase tracking-tighter">
-             לתוצאות מיטביות: הוסף למסך הבית, אשר התראות ואל תסגור את הלשונית לגמרי.
-           </p>
+        <div className="bg-slate-50 p-6 text-[10px] text-slate-400 text-center leading-relaxed">
+          <p>חובה להוסיף למסך הבית (Share → Add to Home Screen)</p>
+          <p>ולהשאיר את האפליקציה פתוחה ברקע כדי לקבל התראות.</p>
         </div>
       </div>
 
-      {/* Toast Notification */}
       {showToast && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl animate-bounce font-bold">
-          נשמר! המסע מתחיל... ✨
+        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-indigo-600 text-white px-8 py-4 rounded-2xl shadow-2xl font-bold animate-in slide-in-from-bottom-4">
+          המערכת הופעלה! נתראה בשעה {time} ✨
         </div>
       )}
     </div>
