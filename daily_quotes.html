@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>העצמה יומית</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Assistant', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .quote-card {
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .quote-card:active {
+            transform: scale(0.98);
+        }
+        .fade-in {
+            animation: fadeIn 0.8s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="w-full max-w-md bg-white rounded-3xl p-8 quote-card text-center fade-in">
+        <header class="mb-8">
+            <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800">העצמה יומית</h1>
+            <p id="date-display" class="text-sm text-gray-500 mt-1"></p>
+        </header>
+
+        <main class="mb-10">
+            <div class="relative">
+                <svg class="absolute -top-4 -right-4 h-10 w-10 text-gray-100" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M14.017 21L14.017 18C14.017 16.8954 14.9124 16 16.017 16H19.017C19.5693 16 20.017 15.5523 20.017 15V9C20.017 8.44772 19.5693 8 19.017 8H15.017C14.4647 8 14.017 7.55228 14.017 7V3L14.017 3H21.017V15C21.017 18.3137 18.3307 21 15.017 21H14.017ZM3.017 21L3.017 18C3.017 16.8954 3.91243 16 5.017 16H8.017C8.56928 16 9.017 15.5523 9.017 15V9C9.017 8.44772 8.56928 8 8.017 8H4.017C3.46472 8 3.017 7.55228 3.017 7V3L3.017 3H10.017V15C10.017 18.3137 7.33072 21 4.017 21H3.017Z" />
+                </svg>
+                <p id="quote-text" class="text-xl md:text-2xl font-medium text-gray-700 leading-relaxed py-4 px-2"></p>
+            </div>
+        </main>
+
+        <footer class="flex flex-col gap-3">
+            <button onclick="copyQuote()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                    <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                </svg>
+                העתק משפט
+            </button>
+            <button onclick="setRandomQuote()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 rounded-xl transition flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                </svg>
+                משפט אקראי
+            </button>
+        </footer>
+    </div>
+
+    <div id="toast" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-2 rounded-full opacity-0 transition-opacity duration-300 pointer-events-none">
+        הועתק ללוח!
+    </div>
+
+    <script>
+        const quotes = [
+            "הדרך היחידה לעשות עבודה נהדרת היא לאהוב את מה שאתה עושה.",
+            "העתיד שייך לאלו המאמינים ביופי של החלומות שלהם.",
+            "כל יום הוא הזדמנות שנייה.",
+            "אל תספור את הימים, גרום לימים להיספר.",
+            "ההצלחה היא לא סופית, והכישלון אינו גורלי: האומץ להמשיך הוא שקובע.",
+            "מה שאתה עושה היום יכול לשפר את כל המחרים שלך.",
+            "אל תחכה להזדמנות, צור אותה.",
+            "השמיים הם לא הגבול, הם רק ההתחלה.",
+            "השינוי מתחיל בך.",
+            "גם מסע של אלף מייל מתחיל בצעד אחד קטן.",
+            "היה הגרסה הטובה ביותר של עצמך.",
+            "הקושי של היום הוא הכוח של מחר.",
+            "תאמין שאתה יכול, ואתה כבר בחצי הדרך.",
+            "כל מה שאי פעם רצית נמצא בצד השני של הפחד.",
+            "אל תיתן לאתמול לתפוס יותר מדי מהיום.",
+            "הדרך הכי טובה לחזות את העתיד היא ליצור אותו.",
+            "אתה חזק יותר ממה שאתה חושב.",
+            "המגבלה היחידה שלך היא הדמיון שלך.",
+            "תהיה אדיב לעצמך.",
+            "הצלחה מורכבת ממעבר מכישלון לכישלון מבלי לאבד את ההתלהבות."
+        ];
+
+        function getDailyQuote() {
+            const today = new Date();
+            const dateString = today.toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const dateDisplay = document.getElementById('date-display');
+            if (dateDisplay) dateDisplay.innerText = dateString;
+
+            const start = new Date(today.getFullYear(), 0, 0);
+            const diff = today - start;
+            const oneDay = 1000 * 60 * 60 * 24;
+            const dayOfYear = Math.floor(diff / oneDay);
+            
+            const quoteIndex = dayOfYear % quotes.length;
+            const quoteText = document.getElementById('quote-text');
+            if (quoteText) quoteText.innerText = quotes[quoteIndex];
+        }
+
+        function setRandomQuote() {
+            const quoteText = document.getElementById('quote-text');
+            if (!quoteText) return;
+            quoteText.classList.remove('fade-in');
+            void quoteText.offsetWidth;
+            
+            const randomIndex = Math.floor(Math.random() * quotes.length);
+            quoteText.innerText = quotes[randomIndex];
+            quoteText.classList.add('fade-in');
+        }
+
+        function copyQuote() {
+            const textElement = document.getElementById('quote-text');
+            if (!textElement) return;
+            const text = textElement.innerText;
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            const toast = document.getElementById('toast');
+            if (toast) {
+                toast.style.opacity = '1';
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                }, 2000);
+            }
+        }
+
+        window.onload = getDailyQuote;
+    </script>
+</body>
+</html>
