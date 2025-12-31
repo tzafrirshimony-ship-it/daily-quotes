@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>העצמה יומית - מתוזמנת</title>
+    <title>העצמה יומית</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
@@ -39,7 +39,6 @@
 <body>
 
     <div class="w-full max-w-md bg-white rounded-[2.5rem] p-8 quote-card text-center fade-in">
-        <!-- בחירת שעה -->
         <div class="mb-6 pb-6 border-b border-gray-100">
             <label class="block text-sm font-bold text-gray-500 mb-2">מתי תרצה לקבל את המשפט?</label>
             <div class="flex gap-2 justify-center">
@@ -54,12 +53,11 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>
-            <h1 class="text-2xl font-bold text-gray-800 tracking-tight" id="app-title">ממתין לשעה הנכונה...</h1>
+            <h1 class="text-2xl font-bold text-gray-800 tracking-tight" id="app-title">ממתין לרגע הנכון...</h1>
             <p id="date-display" class="text-sm font-medium text-gray-400 mt-1"></p>
         </header>
 
         <main class="mb-10 min-h-[160px] flex items-center justify-center relative">
-            <!-- הודעת נעילה -->
             <div id="lock-overlay" class="absolute inset-0 z-20 flex flex-col items-center justify-center">
                 <div class="bg-white/80 p-4 rounded-2xl shadow-sm border border-gray-100">
                     <p class="text-blue-600 font-bold" id="lock-message">המשפט יתגלה בשעה שקבעת</p>
@@ -73,9 +71,6 @@
 
         <footer id="action-buttons" class="hidden space-y-3">
             <button onclick="shareQuote()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
                 שתף השראה
             </button>
         </footer>
@@ -86,7 +81,6 @@
     </div>
 
     <script>
-        // רשימת משפטים
         const quotes = [
             "הדרך היחידה לעשות עבודה נהדרת היא לאהוב את מה שאתה עושה.",
             "העתיד שייך לאלו המאמינים ביופי של החלומות שלהם.",
@@ -101,21 +95,35 @@
             "תאמין שאתה יכול, ואתה כבר בחצי הדרך.",
             "הדרך הכי טובה לחזות את העתיד היא ליצור אותו.",
             "אתה חזק יותר ממה שאתה חושב.",
-            "תהיה אדיב לעצמך.",
-            "ההצלחה היא היכולת לעבור מכישלון אחד למשנהו בלי לאבד את ההתלהבות."
+            "תהיה אדיב לעצמך."
         ];
 
-        // פונקציה לשמירת הגדרות
+        // Register Service Worker from Blob for background notification support
+        if ('serviceWorker' in navigator) {
+            const swContent = `
+                self.addEventListener('install', (e) => self.skipWaiting());
+                self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+                self.addEventListener('notificationclick', (e) => {
+                    e.notification.close();
+                    e.waitUntil(clients.openWindow(self.location.origin));
+                });
+            `;
+            const blob = new Blob([swContent], { type: 'application/javascript' });
+            navigator.serviceWorker.register(URL.createObjectURL(blob));
+        }
+
         function saveSettings() {
             const timeVal = document.getElementById('reminder-time').value;
             if (timeVal) {
                 localStorage.setItem('reminderTime', timeVal);
-                showToast("השעה עודכנה בהצלחה!");
+                showToast("השעה עודכנה!");
+                if (Notification.permission === 'default') {
+                    Notification.requestPermission();
+                }
                 updateUI();
             }
         }
 
-        // עדכון ממשק המשתמש
         function updateUI() {
             const now = new Date();
             const currentHour = now.getHours().toString().padStart(2, '0');
@@ -125,21 +133,35 @@
             const savedTime = localStorage.getItem('reminderTime') || "08:00";
             document.getElementById('reminder-time').value = savedTime;
 
-            // תאריך נוכחי
             const options = { weekday: 'long', day: 'numeric', month: 'long' };
             document.getElementById('date-display').innerText = now.toLocaleDateString('he-IL', options);
 
-            // בחירת משפט לפי היום בשנה
             const startOfYear = new Date(now.getFullYear(), 0, 0);
             const diff = now - startOfYear;
             const dayIdx = Math.floor(diff / (1000 * 60 * 60 * 24));
             document.getElementById('quote-text').innerText = quotes[dayIdx % quotes.length];
 
-            // האם השעה הגיעה?
             if (currentTime >= savedTime) {
                 unlockApp();
+                if (currentTime === savedTime && !window.alreadyNotified) {
+                    sendNotification();
+                }
             } else {
                 lockApp(savedTime);
+                window.alreadyNotified = false;
+            }
+        }
+
+        function sendNotification() {
+            if (Notification.permission === 'granted') {
+                navigator.serviceWorker.ready.then(registration => {
+                    registration.showNotification('העצמה יומית', {
+                        body: 'המשפט היומי שלך מחכה לך!',
+                        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+                        vibrate: [200, 100, 200]
+                    });
+                    window.alreadyNotified = true;
+                });
             }
         }
 
@@ -156,7 +178,7 @@
             document.getElementById('quote-container').classList.add('locked-state');
             document.getElementById('lock-overlay').classList.remove('hidden');
             document.getElementById('action-buttons').classList.add('hidden');
-            document.getElementById('app-title').innerText = "עוד קצת סבלנות...";
+            document.getElementById('app-title').innerText = "ממתין לרגע הנכון";
             document.getElementById('lock-message').innerText = `המשפט יתגלה בשעה ${time}`;
             document.getElementById('status-icon').className = "w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transition-colors duration-500";
             document.getElementById('icon-svg').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />';
@@ -182,7 +204,6 @@
             setTimeout(() => toast.style.opacity = '0', 2500);
         }
 
-        // בדיקה כל 30 שניות
         window.onload = updateUI;
         setInterval(updateUI, 30000);
     </script>
