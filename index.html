@@ -3,105 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>סטודיו השראה</title>
+    <title>העצמה יומית</title>
     
-    <!-- ספריה להמרת העיצוב לתמונה -->
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <!-- הגדרות PWA לאייפון ואנדרואיד -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="manifest" href="data:application/manifest+json,{'name':'העצמה יומית','short_name':'העצמה','display':'standalone','background_color':'#ffffff','theme_color':'#4f46e5','icons':[{'src':'https://cdn-icons-png.flaticon.com/512/3233/3233497.png','sizes':'512x512','type':'image/png'}]}">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3233/3233497.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@700&family=Heebo:wght@300;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;600;800&display=swap" rel="stylesheet">
     
     <style>
-        body { background-color: #111827; font-family: 'Heebo', sans-serif; }
-        
-        /* עיצוב הכרטיס שיהפוך לתמונה */
-        #capture-area {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            position: relative;
-            overflow: hidden;
+        body { font-family: 'Assistant', sans-serif; background-color: #f8fafc; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 40px -10px rgba(79, 70, 229, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.5);
         }
-        
-        /* אלמנטים דקורטיביים */
-        .circle {
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1);
+        .gradient-btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            transition: transform 0.2s;
         }
-        
-        .handwritten {
-            font-family: 'Amatic SC', cursive;
-        }
-
-        .loader {
-            border: 3px solid #f3f3f3;
-            border-radius: 50%;
-            border-top: 3px solid #6366f1;
-            width: 20px;
-            height: 20px;
-            -webkit-animation: spin 1s linear infinite; /* Safari */
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        .gradient-btn:active { transform: scale(0.96); }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4">
+<body class="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-indigo-50 to-purple-50">
 
-    <!-- כותרת -->
-    <div class="text-center mb-6">
-        <h1 class="text-3xl font-bold text-white mb-1">הכרטיס היומי שלך</h1>
-        <p class="text-gray-400 text-sm">צור תמונה, שמור כרקע או שתף בסטטוס</p>
-    </div>
-
-    <!-- האזור שיהפוך לתמונה -->
-    <div id="capture-area" class="w-full max-w-sm aspect-[9/16] rounded-2xl flex flex-col items-center justify-between p-8 text-center text-white relative mb-8">
+    <div class="w-full max-w-sm glass-card rounded-[2rem] p-8 text-center relative overflow-hidden">
         
-        <!-- קישוטים -->
-        <div class="circle w-64 h-64 -top-10 -right-10"></div>
-        <div class="circle w-32 h-32 bottom-20 -left-10"></div>
-        
-        <!-- תאריך -->
-        <div class="relative z-10 w-full flex justify-between items-center opacity-80">
-            <span id="dateDisplay" class="text-sm font-bold tracking-widest uppercase"></span>
-            <span class="text-2xl">✨</span>
-        </div>
-
-        <!-- המשפט -->
-        <div class="relative z-10 flex-1 flex items-center justify-center">
-            <div>
-                <span class="text-6xl opacity-30 block mb-4">"</span>
-                <p id="quoteText" class="text-3xl md:text-4xl font-light leading-snug drop-shadow-lg"></p>
-                <span class="text-6xl opacity-30 block mt-4">"</span>
+        <!-- כותרת -->
+        <header class="mb-8">
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 mb-4 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.344l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                </svg>
             </div>
+            <h1 class="text-3xl font-black text-slate-800 tracking-tight">העצמה יומית</h1>
+            <p id="date-display" class="text-sm text-slate-400 font-bold mt-1"></p>
+        </header>
+
+        <!-- אזור המשפט היומי -->
+        <div class="min-h-[160px] flex items-center justify-center mb-8 relative">
+            <span class="absolute top-0 right-0 text-6xl text-indigo-100 -z-10 font-serif">"</span>
+            <p id="quote-text" class="text-xl md:text-2xl font-bold text-slate-700 leading-relaxed"></p>
+            <span class="absolute bottom-0 left-0 text-6xl text-indigo-100 -z-10 font-serif">"</span>
         </div>
 
-        <!-- חתימה -->
-        <div class="relative z-10 opacity-70">
-            <p class="handwritten text-3xl">העצמה יומית</p>
-        </div>
-    </div>
+        <!-- כפתורים -->
+        <div class="space-y-3">
+            <!-- כפתור היומן - הפתרון לבעיית ההתראות -->
+            <div id="calendar-section" class="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                <label class="block text-[11px] font-bold text-indigo-400 mb-2 uppercase tracking-wide">קבל תזכורת יומית קבועה</label>
+                <div class="flex gap-2">
+                    <input type="time" id="time-picker" class="bg-white border border-indigo-200 text-indigo-800 text-lg font-bold rounded-xl px-3 py-2 outline-none w-28 text-center shadow-sm">
+                    <button onclick="addToCalendar()" class="flex-1 gradient-btn text-white font-bold rounded-xl text-sm shadow-lg shadow-indigo-200 flex items-center justify-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        הוסף ליומן
+                    </button>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-2">יוצר אירוע חוזר ביומן גוגל שלך</p>
+            </div>
 
-    <!-- כפתורי פעולה -->
-    <div class="w-full max-w-sm space-y-3">
-        <button onclick="downloadImage()" id="btnDownload" class="w-full bg-white text-indigo-900 py-4 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition flex items-center justify-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            הורד תמונה (לרקע/סטורי)
-        </button>
-        
-        <button onclick="shareText()" class="w-full bg-gray-800 text-white py-3 rounded-xl font-bold border border-gray-700 active:scale-95 transition">
-            העתק טקסט בלבד
-        </button>
-    </div>
-
-    <div id="loading" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
-        <div class="bg-white p-4 rounded-xl flex items-center gap-3">
-            <div class="loader"></div>
-            <span class="text-sm font-bold">מייצר תמונה...</span>
+            <button onclick="shareQuote()" class="w-full bg-white text-slate-700 font-bold py-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition active:scale-95 flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+                שתף בוואטסאפ
+            </button>
         </div>
     </div>
 
@@ -115,64 +88,66 @@
             "מה שאתה עושה היום יכול לשפר את כל המחרים שלך.",
             "אל תחכה להזדמנות, צור אותה.",
             "השינוי מתחיל בך.",
-            "האנרגיה שלך היא המגנט שלך.",
-            "תאמין שאתה יכול ואתה כבר בחצי הדרך.",
-            "תהיה הגרסה הטובה ביותר של עצמך.",
-            "היום הוא התחלה חדשה."
+            "גם מסע של אלף מייל מתחיל בצעד אחד קטן.",
+            "תאמין שאתה יכול, ואתה כבר בחצי הדרך.",
+            "אתה חזק יותר ממה שאתה חושב.",
+            "תהיה אדיב לעצמך.",
+            "היום הוא יום מצוין להתחלה חדשה.",
+            "האנרגיה שלך היא המגנט שלך."
         ];
 
-        // 1. הגדרת התאריך
+        // אתחול
         const now = new Date();
-        const options = { weekday: 'long', day: 'numeric', month: 'long' };
-        document.getElementById('dateDisplay').innerText = now.toLocaleDateString('he-IL', options);
-
-        // 2. בחירת משפט יומי (לפי יום בשנה)
+        document.getElementById('date-display').innerText = now.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
+        
+        // בחירת משפט לפי היום בשנה
         const start = new Date(now.getFullYear(), 0, 0);
-        const dayIdx = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+        const diff = now - start;
+        const dayIdx = Math.floor(diff / (1000 * 60 * 60 * 24));
         const dailyQuote = quotes[dayIdx % quotes.length];
-        document.getElementById('quoteText').innerText = dailyQuote;
+        
+        document.getElementById('quote-text').innerText = dailyQuote;
+        
+        // טעינת שעה שמורה (או ברירת מחדל)
+        const savedTime = localStorage.getItem('calendarTime') || '08:00';
+        document.getElementById('time-picker').value = savedTime;
 
-        // 3. שינוי רקע רנדומלי כל יום למראה רענן
-        const gradients = [
-            'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%)',
-            'linear-gradient(to top, #30cfd0 0%, #330867 100%)',
-            'linear-gradient(to right, #4facfe 0%, #00f2fe 100%)',
-            'linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%)'
-        ];
-        document.getElementById('capture-area').style.background = gradients[dayIdx % gradients.length];
-
-        // פונקציה להורדת תמונה
-        function downloadImage() {
-            const element = document.getElementById('capture-area');
-            const loader = document.getElementById('loading');
+        function addToCalendar() {
+            const timeVal = document.getElementById('time-picker').value;
+            localStorage.setItem('calendarTime', timeVal);
             
-            loader.classList.remove('hidden');
+            const [hours, minutes] = timeVal.split(':');
+            
+            // הגדרת זמן התחלה (מחר)
+            const startDate = new Date();
+            startDate.setHours(parseInt(hours), parseInt(minutes), 0);
+            if (startDate < new Date()) startDate.setDate(startDate.getDate() + 1);
+            
+            const endDate = new Date(startDate.getTime() + 10 * 60000); // 10 דקות משך אירוע
 
-            html2canvas(element, {
-                scale: 3, // איכות גבוהה
-                useCORS: true,
-                backgroundColor: null
-            }).then(canvas => {
-                // יצירת קישור להורדה
-                const link = document.createElement('a');
-                link.download = `daily-quote-${now.getDate()}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-                
-                loader.classList.add('hidden');
-            }).catch(err => {
-                alert("הייתה בעיה ביצירת התמונה");
-                loader.classList.add('hidden');
-            });
+            // פונקציית עזר לפורמט גוגל (YYYYMMDDTHHMMSSZ)
+            const formatGCalTime = (date) => {
+                return date.toISOString().replace(/-|:|\.\d\d\d/g, "").slice(0,15) + "Z";
+            };
+
+            const startStr = formatGCalTime(startDate);
+            const endStr = formatGCalTime(endDate);
+            
+            const title = encodeURIComponent("✨ רגע של העצמה יומית");
+            const details = encodeURIComponent(`היכנס לקבלת המשפט היומי שלך:\n${window.location.href}`);
+            
+            // בניית הקישור עם חזרה יומית
+            const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&dates=${startStr}/${endStr}&recur=RRULE:FREQ=DAILY`;
+            
+            window.open(url, '_blank');
         }
 
-        function shareText() {
-            const text = `${dailyQuote}\n\nנוצר בסטודיו ההשראה היומי ✨`;
+        function shareQuote() {
+            const text = `${dailyQuote}\n\nנשלח מאפליקציית העצמה יומית ✨\n${window.location.href}`;
             if (navigator.share) {
-                navigator.share({ title: 'השראה יומית', text: text });
+                navigator.share({ title: 'העצמה יומית', text: text, url: window.location.href });
             } else {
-                navigator.clipboard.writeText(text).then(() => alert("הטקסט הועתק!"));
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
             }
         }
     </script>
