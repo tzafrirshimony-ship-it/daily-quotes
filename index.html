@@ -2,51 +2,59 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>העצמה יומית</title>
-    
-    <!-- PWA Metadata -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="manifest" href="data:application/manifest+json,{'name':'DailyQuotes','short_name':'העצמה','start_url':'.','display':'standalone','background_color':'#ffffff','theme_color':'#4f46e5'}">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>רגע של השראה</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700;800&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Assistant', sans-serif; background: #f9fafb; }
-        .btn-active:active { transform: scale(0.98); }
+        body { font-family: 'Assistant', sans-serif; background-color: #f3f4f6; }
+        .clock-bg { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-6">
+<body class="flex items-center justify-center min-h-screen p-4">
 
-    <div class="w-full max-w-sm bg-white rounded-[2rem] shadow-2xl p-8 text-center border border-gray-50">
-        <header class="mb-8">
-            <div class="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-            </div>
-            <h1 class="text-2xl font-extrabold text-gray-800">העצמה יומית</h1>
-            <p class="text-gray-400 text-xs mt-1">אנא בצע "הוספה למסך הבית"</p>
-        </header>
-
-        <div class="space-y-4">
-            <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <span class="block text-[10px] font-bold text-gray-400 uppercase mb-1">שעת התראה</span>
-                <input type="time" id="userTime" class="w-full bg-transparent text-2xl font-bold text-center text-indigo-600 outline-none">
-            </div>
-
-            <button onclick="setupApp()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold btn-active shadow-lg shadow-indigo-100">
-                הפעל התראות
-            </button>
-            
-            <button onclick="sendTest()" class="w-full text-indigo-500 text-xs font-bold underline">
-                שלח התראת בדיקה עכשיו
-            </button>
+    <div class="w-full max-w-md bg-white shadow-2xl rounded-[2.5rem] overflow-hidden">
+        <!-- Header -->
+        <div class="clock-bg p-8 text-white text-center">
+            <h1 class="text-3xl font-extrabold mb-2">העצמה יומית</h1>
+            <p class="text-indigo-100 opacity-90">הגדר שעה וקבל השראה יומית</p>
         </div>
 
-        <div id="debug" class="mt-6 text-[10px] text-red-500 font-bold hidden"></div>
+        <!-- Content -->
+        <div class="p-8 space-y-8">
+            <!-- Time Selection -->
+            <div class="space-y-4">
+                <label class="block text-sm font-semibold text-gray-500 text-center uppercase tracking-wider">בחר שעה לקבלת המשפט</label>
+                <div class="flex gap-2">
+                    <input type="time" id="timePicker" class="flex-1 bg-gray-50 border-2 border-gray-100 rounded-2xl px-4 py-3 text-2xl font-bold text-center text-indigo-600 focus:border-indigo-500 outline-none transition-all">
+                    <button onclick="saveSettings()" class="bg-indigo-600 text-white px-6 rounded-2xl font-bold hover:bg-indigo-700 active:scale-95 transition-all shadow-lg">שמור</button>
+                </div>
+            </div>
+
+            <!-- Status & Test -->
+            <div class="bg-indigo-50 rounded-2xl p-4 border border-indigo-100">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-bold text-indigo-900">סטטוס התראות:</span>
+                    <span id="permStatus" class="text-xs font-bold px-2 py-1 rounded-full bg-gray-200">בודק...</span>
+                </div>
+                <button onclick="testNow()" class="w-full text-indigo-600 text-xs font-bold underline py-1">שלח התראת בדיקה עכשיו</button>
+            </div>
+
+            <!-- Quote Area (Locked/Unlocked) -->
+            <div id="quoteDisplay" class="min-h-[150px] flex items-center justify-center bg-gray-50 rounded-[2rem] p-6 border-2 border-dashed border-gray-200 relative overflow-hidden">
+                <div id="lockedView" class="text-center space-y-2">
+                    <span class="text-4xl">🔒</span>
+                    <p class="text-gray-400 font-medium">המשפט יתגלה בשעה שקבעת</p>
+                </div>
+                <div id="unlockedView" class="hidden text-center animate-fade-in">
+                    <p id="quoteText" class="text-xl font-bold text-gray-800 leading-relaxed italic"></p>
+                </div>
+            </div>
+        </div>
+
+        <footer class="p-6 text-center text-[10px] text-gray-400 bg-gray-50 uppercase tracking-tighter">
+            וודא שהדף פתוח בדפדפן (ניתן ברקע) • <span id="lastCheck"></span>
+        </footer>
     </div>
 
     <script>
@@ -54,77 +62,97 @@
             "הדרך היחידה לעשות עבודה נהדרת היא לאהוב את מה שאתה עושה.",
             "העתיד שייך לאלו המאמינים ביופי של החלומות שלהם.",
             "כל יום הוא הזדמנות שנייה.",
+            "אל תספור את הימים, גרום לימים להיספר.",
+            "ההצלחה היא לא סופית, והכישלון אינו גורלי.",
+            "האנרגיה שלך היא המגנט שלך.",
             "תאמין שאתה יכול ואתה כבר בחצי הדרך."
         ];
 
-        // טעינת שעה
-        document.getElementById('userTime').value = localStorage.getItem('savedTime') || '08:00';
+        // טעינת הגדרות ראשוניות
+        document.getElementById('timePicker').value = localStorage.getItem('userTime') || '08:00';
 
-        async function setupApp() {
-            const time = document.getElementById('userTime').value;
-            localStorage.setItem('savedTime', time);
+        function saveSettings() {
+            const time = document.getElementById('timePicker').value;
+            localStorage.setItem('userTime', time);
+            localStorage.removeItem('lastNotified'); // איפוס כדי שיוכל לקבל התראה היום אם השעה מתאימה
             
-            // 1. בקשת הרשאה
-            const permission = await Notification.requestPermission();
-            if (permission !== 'granted') {
-                showError("חובה לאשר התראות בהגדרות הדפדפן");
-                return;
-            }
-
-            // 2. רישום Service Worker (הקוד שרץ ברקע)
-            if ('serviceWorker' in navigator) {
-                const swCode = `
-                    self.addEventListener('install', e => self.skipWaiting());
-                    self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-                `;
-                const blob = new Blob([swCode], { type: 'application/javascript' });
-                await navigator.serviceWorker.register(URL.createObjectURL(blob));
-            }
-
-            alert("המערכת הופעלה! וודא שהאפליקציה במסך הבית");
-        }
-
-        function sendNotification(title, msg) {
-            if (Notification.permission === 'granted') {
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.showNotification(title, {
-                        body: msg,
-                        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                        vibrate: [200, 100, 200]
-                    });
-                });
-            }
-        }
-
-        function sendTest() {
             if (Notification.permission !== 'granted') {
-                alert("קודם לחץ על הכפתור הכחול ואשר התראות");
-                return;
+                Notification.requestPermission().then(updatePermissionStatus);
             }
-            sendNotification("בדיקה!", "אם ראית את זה, ההתראות עובדות.");
+            
+            showToast("ההגדרות נשמרו! ✨");
+            checkTime();
+        }
+
+        function updatePermissionStatus() {
+            const el = document.getElementById('permStatus');
+            const status = Notification.permission;
+            el.innerText = status === 'granted' ? 'מאושר' : (status === 'denied' ? 'חסום' : 'ממתין לאישור');
+            el.className = `text-xs font-bold px-2 py-1 rounded-full ${status === 'granted' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
         }
 
         function checkTime() {
             const now = new Date();
-            const current = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
-            const target = localStorage.getItem('savedTime');
-            const last = localStorage.getItem('lastDate');
+            const currentStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+            const targetTime = localStorage.getItem('userTime') || '08:00';
+            const today = now.toDateString();
+            
+            document.getElementById('lastCheck').innerText = "בדיקה אחרונה: " + currentStr;
 
-            if (current === target && last !== now.toDateString()) {
-                const q = quotes[Math.floor(Math.random() * quotes.length)];
-                sendNotification("השראה יומית ✨", q);
-                localStorage.setItem('lastDate', now.toDateString());
+            // בחירת משפט יומי
+            const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+            const quote = quotes[dayIdx % quotes.length];
+
+            if (currentStr >= targetTime) {
+                // חשיפת המשפט
+                document.getElementById('lockedView').classList.add('hidden');
+                document.getElementById('unlockedView').classList.remove('hidden');
+                document.getElementById('quoteText').innerText = `"${quote}"`;
+
+                // שליחת התראה רק אם זו הדקה המדויקת וטרם נשלחה התראה היום
+                if (currentStr === targetTime && localStorage.getItem('lastNotified') !== today) {
+                    sendNotification("ההשראה היומית שלך הגיעה!", quote);
+                    localStorage.setItem('lastNotified', today);
+                }
+            } else {
+                // מצב נעול
+                document.getElementById('lockedView').classList.remove('hidden');
+                document.getElementById('unlockedView').classList.add('hidden');
             }
         }
 
-        function showError(m) {
-            const d = document.getElementById('debug');
-            d.innerText = m;
-            d.classList.remove('hidden');
+        function sendNotification(title, body) {
+            if (Notification.permission === 'granted') {
+                new Notification(title, {
+                    body: body,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'
+                });
+            }
         }
 
-        // בדיקה כל 30 שניות
-        setInterval(checkTime, 30000);
+        function testNow() {
+            if (Notification.permission !== 'granted') {
+                Notification.requestPermission().then(p => {
+                    if (p === 'granted') sendNotification("זה עובד! 🎉", "ככה תקבל את המשפטים היומיים.");
+                    updatePermissionStatus();
+                });
+            } else {
+                sendNotification("זה עובד! 🎉", "ככה תקבל את המשפטים היומיים.");
+            }
+        }
+
+        function showToast(msg) {
+            const div = document.createElement('div');
+            div.className = "fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-2xl text-sm font-bold shadow-2xl z-50 animate-bounce";
+            div.innerText = msg;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        // ריצה ראשונית ובדיקה כל דקה
+        updatePermissionStatus();
+        checkTime();
+        setInterval(checkTime, 30000); // בדיקה כל 30 שניות ליתר ביטחון
     </script>
 </body>
 </html>
