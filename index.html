@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>העצמה יומית</title>
+    
+    <!-- Manifest for PWA detection -->
+    <link rel="manifest" href='data:application/manifest+json,{"name":"העצמה יומית","short_name":"העצמה","start_url":".","display":"standalone","background_color":"#ffffff","theme_color":"#3b82f6","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/3135/3135715.png","sizes":"512x512","type":"image/png"}]}'>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="העצמה יומית">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
@@ -35,10 +42,11 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .status-dot {
-            height: 8px;
-            width: 8px;
+            height: 10px;
+            width: 10px;
             border-radius: 50%;
             display: inline-block;
+            margin-left: 5px;
         }
     </style>
 </head>
@@ -46,25 +54,36 @@
 
     <div class="w-full max-w-md bg-white rounded-[2.5rem] p-8 quote-card text-center fade-in">
         
-        <!-- מערכת אבחון לתקלות -->
+        <!-- לוח בקרה לאבחון (Debug Panel) -->
         <div id="debug-panel" class="mb-6 p-4 bg-gray-50 rounded-2xl text-right text-xs border border-gray-100">
-            <h3 class="font-bold mb-2 text-gray-700">מצב מערכת:</h3>
-            <div class="space-y-1">
-                <div><span id="sw-status" class="status-dot bg-red-400"></span> שירות רקע (Service Worker)</div>
-                <div><span id="perm-status" class="status-dot bg-red-400"></span> הרשאות התראה</div>
-                <div><span id="standalone-status" class="status-dot bg-red-400"></span> מותקן במסך הבית</div>
+            <h3 class="font-bold mb-2 text-gray-700 underline">סטטוס מערכת:</h3>
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <span>שירות רקע (Service Worker)</span>
+                    <span id="sw-status" class="status-dot bg-red-400"></span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span>הרשאות התראה</span>
+                    <span id="perm-status" class="status-dot bg-red-400"></span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span>פועל ממסך הבית (App Mode)</span>
+                    <span id="standalone-status" class="status-dot bg-red-400"></span>
+                </div>
             </div>
-            <button onclick="requestPermissionDirectly()" id="fix-perm-btn" class="mt-3 w-full bg-amber-100 text-amber-700 py-2 rounded-lg font-bold hidden">תקן הרשאות התראה</button>
+            <div id="action-needed" class="mt-3 p-2 bg-amber-100 text-amber-800 rounded-lg font-bold hidden text-center">
+                חובה להוסיף למסך הבית כדי שיעבוד!
+            </div>
         </div>
 
         <div class="mb-6 pb-6 border-b border-gray-100 text-right">
-            <label class="block text-sm font-bold text-gray-500 mb-2">בחר שעת התראה:</label>
+            <label class="block text-sm font-bold text-gray-500 mb-2">שעת קבלת המשפט:</label>
             <div class="flex gap-2 justify-center">
                 <input type="time" id="reminder-time" class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-lg focus:ring-2 focus:ring-blue-500 outline-none">
                 <button onclick="saveSettings()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-700 transition">שמור</button>
             </div>
-            <button onclick="testNotification()" class="mt-4 w-full py-3 border-2 border-dashed border-blue-200 text-blue-500 rounded-xl text-sm font-bold hover:bg-blue-50 transition">
-                שלח התראת בדיקה עכשיו
+            <button onclick="testNotification()" class="mt-4 w-full py-2 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200 transition">
+                בדיקת התראה עכשיו
             </button>
         </div>
 
@@ -117,7 +136,7 @@
             "תהיה אדיב לעצמך."
         ];
 
-        // הרשמת Service Worker בצורה יציבה יותר
+        // פונקציית רישום משופרת לשירות הרקע
         async function initServiceWorker() {
             if ('serviceWorker' in navigator) {
                 try {
@@ -134,45 +153,33 @@
                     `;
                     const blob = new Blob([swCode], { type: 'application/javascript' });
                     const swUrl = URL.createObjectURL(blob);
-                    await navigator.serviceWorker.register(swUrl);
-                    document.getElementById('sw-status').classList.replace('bg-red-400', 'bg-green-400');
+                    const registration = await navigator.serviceWorker.register(swUrl);
+                    if (registration) {
+                        document.getElementById('sw-status').classList.replace('bg-red-400', 'bg-green-400');
+                    }
                 } catch (err) {
-                    console.error('SW Registration failed', err);
+                    console.log('SW registration skipped or failed - common in non-standalone browser mode');
                 }
             }
-        }
-
-        function requestPermissionDirectly() {
-            if (!("Notification" in window)) {
-                alert("הדפדפן שלך לא תומך בהתראות.");
-                return;
-            }
-            Notification.requestPermission().then(permission => {
-                updateStatusDots();
-                if (permission === 'granted') {
-                    showToast("התראות אושרו!");
-                    document.getElementById('fix-perm-btn').classList.add('hidden');
-                } else {
-                    alert("ההתראות נחסמו. יש לאשר אותן בהגדרות הדפדפן.");
-                }
-            });
         }
 
         function updateStatusDots() {
-            // בדיקת הרשאות
+            // בדיקת הרשאות התראה
             if (window.Notification) {
                 if (Notification.permission === 'granted') {
                     document.getElementById('perm-status').classList.replace('bg-red-400', 'bg-green-400');
-                    document.getElementById('fix-perm-btn').classList.add('hidden');
                 } else if (Notification.permission === 'default') {
-                    document.getElementById('fix-perm-btn').classList.remove('hidden');
+                    // המשתמש טרם נשאל
                 }
             }
 
-            // בדיקת standalone (מסך הבית)
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+            // בדיקת האם האפליקציה רצה ממסך הבית (Standalone)
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
             if (isStandalone) {
                 document.getElementById('standalone-status').classList.replace('bg-red-400', 'bg-green-400');
+                document.getElementById('action-needed').classList.add('hidden');
+            } else {
+                document.getElementById('action-needed').classList.remove('hidden');
             }
         }
 
@@ -180,18 +187,28 @@
             const timeVal = document.getElementById('reminder-time').value;
             if (timeVal) {
                 localStorage.setItem('reminderTime', timeVal);
-                showToast("נשמר! וודא שהאפליקציה פתוחה ברקע.");
-                localStorage.removeItem('lastNotifiedDate'); // איפוס לצורך בדיקה
-                requestPermissionDirectly();
+                showToast("הגדרות נשמרו!");
+                localStorage.removeItem('lastNotifiedDate');
+                
+                if (window.Notification && Notification.permission !== 'granted') {
+                    Notification.requestPermission().then(updateStatusDots);
+                }
                 updateUI();
             }
         }
 
         function testNotification() {
-            if (Notification.permission !== "granted") {
-                requestPermissionDirectly();
+            if (Notification.permission === 'granted') {
+                sendNotification("בדיקת מערכת", "הנה, זה עובד! כך תקבל את המשפט היומי.");
             } else {
-                sendNotification("התראת בדיקה", "הנה, זה עובד! כך תקבל את המשפט היומי.");
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        sendNotification("התראות אושרו", "עכשיו הכל מוכן!");
+                        updateStatusDots();
+                    } else {
+                        alert("חובה לאשר התראות בהגדרות הטלפון/דפדפן.");
+                    }
+                });
             }
         }
 
@@ -201,8 +218,7 @@
                     reg.showNotification(title, {
                         body: body,
                         icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                        vibrate: [200, 100, 200],
-                        badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'
+                        vibrate: [200, 100, 200]
                     });
                 });
             }
@@ -214,22 +230,20 @@
             const savedTime = localStorage.getItem('reminderTime') || "08:00";
             document.getElementById('reminder-time').value = savedTime;
 
-            // תאריך
             const options = { weekday: 'long', day: 'numeric', month: 'long' };
             document.getElementById('date-display').innerText = now.toLocaleDateString('he-IL', options);
 
-            // משפט
             const start = new Date(now.getFullYear(), 0, 0);
             const diff = now - start;
             const dayIdx = Math.floor(diff / (1000 * 60 * 60 * 24));
-            document.getElementById('quote-text').innerText = quotes[dayIdx % quotes.length];
+            const currentQuote = quotes[dayIdx % quotes.length];
+            document.getElementById('quote-text').innerText = currentQuote;
 
-            // בדיקת נעילה
             if (currentStr >= savedTime) {
                 unlockApp();
                 const today = now.toDateString();
                 if (currentStr === savedTime && localStorage.getItem('lastNotifiedDate') !== today) {
-                    sendNotification('המשפט היומי שלך כאן!', quotes[dayIdx % quotes.length]);
+                    sendNotification('המשפט היומי שלך כאן!', currentQuote);
                     localStorage.setItem('lastNotifiedDate', today);
                 }
             } else {
@@ -249,7 +263,9 @@
             document.getElementById('quote-container').classList.add('locked-state');
             document.getElementById('lock-overlay').classList.remove('hidden');
             document.getElementById('action-buttons').classList.add('hidden');
+            document.getElementById('app-title').innerText = "עוד קצת סבלנות...";
             document.getElementById('lock-message').innerText = `המשפט יתגלה בשעה ${time}`;
+            document.getElementById('status-icon').className = "w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg";
         }
 
         function showToast(msg) {
@@ -273,7 +289,7 @@
             updateStatusDots();
             updateUI();
         };
-        setInterval(updateUI, 10000); // בדיקה כל 10 שניות
+        setInterval(updateUI, 15000); 
     </script>
 </body>
 </html>
