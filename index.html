@@ -1,306 +1,174 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>העצמה יומית</title>
+import React, { useState, useEffect, useRef } from 'react';
+
+// משפטי העצמה
+const QUOTES = [
+  "הדרך היחידה לעשות עבודה נהדרת היא לאהוב את מה שאתה עושה.",
+  "העתיד שייך לאלו המאמינים ביופי של החלומות שלהם.",
+  "כל יום הוא הזדמנות שנייה.",
+  "אל תספור את הימים, גרום לימים להיספר.",
+  "ההצלחה היא לא סופית, והכישלון אינו גורלי.",
+  "מה שאתה עושה היום יכול לשפר את כל המחרים שלך.",
+  "אל תחכה להזדמנות, צור אותה.",
+  "השינוי מתחיל בך.",
+  "גם מסע של אלף מייל מתחיל בצעד אחד קטן.",
+  "תאמין שאתה יכול, ואתה כבר בחצי הדרך.",
+  "אתה חזק יותר ממה שאתה חושב.",
+  "תהיה אדיב לעצמך היום."
+];
+
+const App = () => {
+  const [time, setTime] = useState(localStorage.getItem('reminderTime') || '08:00');
+  const [isLocked, setIsLocked] = useState(true);
+  const [quote, setQuote] = useState('');
+  const [showToast, setShowToast] = useState(false);
+  const [bgActive, setBgActive] = useState(false);
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    updateQuoteStatus();
+    const interval = setInterval(updateQuoteStatus, 30000); // בדיקה כל 30 שניות
+    return () => clearInterval(interval);
+  }, [time]);
+
+  const updateQuoteStatus = () => {
+    const now = new Date();
+    const currentStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
     
-    <!-- PWA Metadata -->
-    <link rel="manifest" href='data:application/manifest+json,{"name":"העצמה יומית","short_name":"העצמה","start_url":".","display":"standalone","background_color":"#ffffff","theme_color":"#3b82f6","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/3135/3135715.png","sizes":"512x512","type":"image/png"}]}'>
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="העצמה יומית">
+    // חישוב משפט לפי היום בשנה
+    const start = new Date(now.getFullYear(), 0, 0);
+    const diff = now - start;
+    const dayIdx = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const dailyQuote = QUOTES[dayIdx % QUOTES.length];
+    setQuote(dailyQuote);
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Assistant', sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0;
-            padding: 20px;
-        }
-        .quote-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-        }
-        .locked-state {
-            filter: blur(20px);
-            user-select: none;
-            pointer-events: none;
-            opacity: 0.2;
-        }
-        .status-dot {
-            height: 10px;
-            width: 10px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-left: 8px;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        .checking { animation: pulse 1s infinite; }
-    </style>
-</head>
-<body>
+    if (currentStr >= time) {
+      setIsLocked(false);
+      // בדיקה אם כבר שלחנו התראה היום
+      const lastNotified = localStorage.getItem('lastNotifiedDate');
+      if (currentStr === time && lastNotified !== now.toDateString()) {
+        triggerNotification(dailyQuote);
+        localStorage.setItem('lastNotifiedDate', now.toDateString());
+      }
+    } else {
+      setIsLocked(true);
+    }
+  };
 
-    <div class="w-full max-w-md bg-white rounded-[2.5rem] p-8 quote-card text-center relative overflow-hidden">
+  const triggerNotification = (text) => {
+    if (Notification.permission === 'granted') {
+      new Notification('ההשראה היומית שלך כאן ✨', {
+        body: text,
+        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'
+      });
+    }
+  };
+
+  const handleSave = () => {
+    localStorage.setItem('reminderTime', time);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+    
+    if (Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
+    
+    // הפעלת "מצב רקע" - דורש אינטראקציה של המשתמש
+    if (audioRef.current) {
+      audioRef.current.play().catch(e => console.log("Audio play blocked"));
+      setBgActive(true);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F0F4F8] flex items-center justify-center p-6 font-sans text-slate-800" dir="rtl">
+      {/* Hidden audio to keep the app alive in background */}
+      <audio ref={audioRef} loop>
+        <source src="data:audio/wav;base64,UklGRigAAABXQVZFAmZtdCAQAAAAEAAKAnABAAgAAABhZGF0YQAAAAA=" type="audio/wav" />
+      </audio>
+
+      <div className="w-full max-w-md bg-white rounded-[3rem] shadow-2xl overflow-hidden transition-all duration-700">
         
-        <!-- לוח אבחון טכני -->
-        <div id="debug-panel" class="mb-6 p-4 bg-slate-50 rounded-2xl text-right text-[11px] border border-slate-200">
-            <h3 class="font-bold mb-2 text-slate-700 border-b pb-1">אבחון מערכת:</h3>
-            <div class="space-y-2">
-                <div class="flex items-center justify-between">
-                    <span>פרוטוקול אבטחה (HTTPS)</span>
-                    <span id="https-status" class="status-dot bg-red-400"></span>
-                </div>
-                <div class="flex items-center justify-between">
-                    <span>שירות רקע (Worker)</span>
-                    <span id="sw-status" class="status-dot bg-red-400"></span>
-                </div>
-                <div class="flex items-center justify-between">
-                    <span>הרשאות התראה</span>
-                    <span id="perm-status" class="status-dot bg-red-400"></span>
-                </div>
-                <div class="flex items-center justify-between">
-                    <span>מצב אפליקציה (Home Screen)</span>
-                    <span id="standalone-status" class="status-dot bg-red-400"></span>
-                </div>
-            </div>
-            <div id="debug-msg" class="mt-3 p-2 bg-red-50 text-red-600 rounded-lg hidden text-center font-bold"></div>
-            <button onclick="attemptSetup()" class="mt-4 w-full py-2 bg-blue-50 text-blue-600 font-bold rounded-lg border border-blue-100 hover:bg-blue-100 transition active:scale-95">
-                נסה להפעיל שירותים שוב
-            </button>
+        {/* Header Section */}
+        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-10 text-white text-center relative">
+          <div className="absolute top-4 left-4">
+             <div className={`w-3 h-3 rounded-full ${bgActive ? 'bg-green-400 animate-pulse' : 'bg-slate-300'}`} title={bgActive ? 'Background mode active' : 'Background mode idle'}></div>
+          </div>
+          <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-md">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.344l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">רגע של שקט</h1>
+          <p className="text-indigo-100 text-sm mt-2">ההשראה היומית שלך מחכה לרגע הנכון</p>
         </div>
 
-        <div class="mb-6 pb-6 border-b border-slate-100 text-right">
-            <label class="block text-sm font-bold text-slate-500 mb-2">שעת התראה:</label>
-            <div class="flex gap-2 justify-center">
-                <input type="time" id="reminder-time" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                <button onclick="saveSettings()" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold hover:bg-blue-700 transition active:scale-95">שמור</button>
+        {/* Content Section */}
+        <div className="p-8">
+          <div className="mb-8">
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">הגדר שעת הארה</label>
+            <div className="flex gap-3">
+              <input 
+                type="time" 
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-xl font-semibold focus:border-indigo-500 focus:outline-none transition-colors"
+              />
+              <button 
+                onClick={handleSave}
+                className="bg-indigo-600 text-white px-8 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-200"
+              >
+                שמור
+              </button>
             </div>
-            <button onclick="testNotification()" class="mt-3 w-full text-xs text-blue-400 font-medium">שלח התראת בדיקה</button>
-        </div>
+          </div>
 
-        <header class="mb-8">
-            <div id="status-icon" class="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transition-all duration-700">
-                <svg id="icon-svg" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <div className="relative min-h-[200px] flex items-center justify-center border-2 border-dashed border-slate-100 rounded-[2rem] p-6">
+            {isLocked ? (
+              <div className="text-center space-y-4">
+                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <p className="text-slate-400 font-medium">המשפט יתגלה בשעה {time}</p>
+                <p className="text-[10px] text-slate-300">וודא שהאפליקציה פתוחה ברקע</p>
+              </div>
+            ) : (
+              <div className="text-center animate-fade-in">
+                <svg className="h-8 w-8 text-indigo-100 absolute top-4 right-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M14.017 21L14.017 18C14.017 16.8954 14.9124 16 16.017 16H19.017C19.5693 16 20.017 15.5523 20.017 15V9C20.017 8.44772 19.5693 8 19.017 8H15.017C14.4647 8 14.017 7.55228 14.017 7V3L14.017 3H21.017V15C21.017 18.3137 18.3307 21 15.017 21H14.017ZM3.017 21L3.017 18C3.017 16.8954 3.91243 16 5.017 16H8.017C8.56928 16 9.017 15.5523 9.017 15V9C9.017 8.44772 8.56928 8 8.017 8H4.017C3.46472 8 3.017 7.55228 3.017 7V3L3.017 3H10.017V15C10.017 18.3137 7.33072 21 4.017 21H3.017Z" />
                 </svg>
-            </div>
-            <h1 class="text-2xl font-bold text-slate-800 tracking-tight" id="app-title">המשפט היומי</h1>
-            <p id="date-display" class="text-sm font-medium text-slate-400 mt-1"></p>
-        </header>
+                <p className="text-2xl font-bold text-slate-700 leading-tight mb-6">"{quote}"</p>
+                <button 
+                  onClick={() => navigator.share({ title: 'השראה יומית', text: quote, url: window.location.href })}
+                  className="inline-flex items-center gap-2 text-indigo-600 font-bold text-sm hover:underline"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                  שתף את האור
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
-        <main class="mb-10 min-h-[140px] flex items-center justify-center relative">
-            <div id="lock-overlay" class="absolute inset-0 z-20 flex items-center justify-center">
-                <div class="bg-white/90 p-5 rounded-3xl shadow-sm border border-slate-50">
-                    <p class="text-blue-600 font-bold" id="lock-message">ההשראה תגיע בשעה שקבעת</p>
-                </div>
-            </div>
-            
-            <div id="quote-container" class="locked-state w-full">
-                <p id="quote-text" class="text-xl md:text-2xl font-bold text-slate-700 leading-relaxed px-4"></p>
-            </div>
-        </main>
+        {/* Footer info */}
+        <div className="bg-slate-50 p-6 text-center">
+           <p className="text-[10px] text-slate-400 leading-relaxed uppercase tracking-tighter">
+             לתוצאות מיטביות: הוסף למסך הבית, אשר התראות ואל תסגור את הלשונית לגמרי.
+           </p>
+        </div>
+      </div>
 
-        <footer id="action-buttons" class="hidden">
-            <button onclick="shareQuote()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95">
-                שתף עם חברים
-            </button>
-        </footer>
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-2xl animate-bounce font-bold">
+          נשמר! המסע מתחיל... ✨
+        </div>
+      )}
     </div>
+  );
+};
 
-    <div id="toast" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-8 py-3 rounded-full opacity-0 transition-all duration-300 pointer-events-none text-sm font-bold z-50">
-        הגדרות עודכנו!
-    </div>
-
-    <script>
-        const quotes = [
-            "הדרך היחידה לעשות עבודה נהדרת היא לאהוב את מה שאתה עושה.",
-            "העתיד שייך לאלו המאמינים ביופי של החלומות שלהם.",
-            "כל יום הוא הזדמנות שנייה.",
-            "אל תספור את הימים, גרום לימים להיספר.",
-            "ההצלחה היא לא סופית, והכישלון אינו גורלי.",
-            "מה שאתה עושה היום יכול לשפר את כל המחרים שלך.",
-            "אל תחכה להזדמנות, צור אותה.",
-            "השינוי מתחיל בך.",
-            "גם מסע של אלף מייל מתחיל בצעד אחד קטן.",
-            "תאמין שאתה יכול, ואתה כבר בחצי הדרך.",
-            "אתה חזק יותר ממה שאתה חושב.",
-            "תהיה אדיב לעצמך."
-        ];
-
-        // בדיקה אם אנחנו בתוך IFRAME (תצוגה מקדימה)
-        const isIframe = window.self !== window.top;
-
-        async function attemptSetup() {
-            const debugMsg = document.getElementById('debug-msg');
-            debugMsg.classList.add('hidden');
-
-            if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-                logDebug("חובה להשתמש ב-HTTPS כדי שהתראות יעבדו.");
-                return;
-            }
-            document.getElementById('https-status').classList.replace('bg-red-400', 'bg-green-400');
-
-            if (isIframe) {
-                logDebug("לא ניתן להפעיל שירותי רקע בתוך תצוגה מקדימה. העלה ל-GitHub ובדוק שם.");
-                return;
-            }
-
-            await registerServiceWorker();
-            updateStatus();
-        }
-
-        async function registerServiceWorker() {
-            if (!('serviceWorker' in navigator)) return;
-
-            const swCode = `
-                self.addEventListener('install', e => self.skipWaiting());
-                self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-                self.addEventListener('notificationclick', e => {
-                    e.notification.close();
-                    e.waitUntil(clients.matchAll({type: 'window'}).then(c => {
-                        if (c.length > 0) return c[0].focus();
-                        return clients.openWindow('/');
-                    }));
-                });
-            `;
-            const blob = new Blob([swCode], { type: 'application/javascript' });
-            const swUrl = URL.createObjectURL(blob);
-
-            try {
-                await navigator.serviceWorker.register(swUrl);
-                document.getElementById('sw-status').classList.replace('bg-red-400', 'bg-green-400');
-            } catch (err) {
-                console.error('SW Error:', err);
-                logDebug("שירות הרקע נחסם עקב מדיניות אבטחה.");
-            }
-        }
-
-        function logDebug(msg) {
-            const el = document.getElementById('debug-msg');
-            el.innerText = msg;
-            el.classList.remove('hidden');
-        }
-
-        function updateStatus() {
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-            if (isStandalone) {
-                document.getElementById('standalone-status').classList.replace('bg-red-400', 'bg-green-400');
-            }
-
-            if (window.Notification && Notification.permission === 'granted') {
-                document.getElementById('perm-status').classList.replace('bg-red-400', 'bg-green-400');
-            }
-        }
-
-        function saveSettings() {
-            const timeVal = document.getElementById('reminder-time').value;
-            if (timeVal) {
-                localStorage.setItem('reminderTime', timeVal);
-                showToast("הגדרות נשמרו!");
-                localStorage.removeItem('lastNotifiedDate');
-                
-                if (window.Notification) {
-                    Notification.requestPermission().then(perm => {
-                        updateStatus();
-                        if (perm === 'denied') alert("התראות חסומות בהגדרות המכשיר.");
-                    });
-                }
-                updateUI();
-            }
-        }
-
-        function testNotification() {
-            if (Notification.permission === 'granted') {
-                sendNotification("בדיקת מערכת ✅", "מעולה! ההתראות שלך עובדות.");
-            } else {
-                Notification.requestPermission().then(p => {
-                    if (p === 'granted') sendNotification("בדיקת מערכת ✅", "עכשיו זה עובד!");
-                    else alert("יש לאשר התראות בהגדרות.");
-                    updateStatus();
-                });
-            }
-        }
-
-        function sendNotification(title, body) {
-            if (Notification.permission !== 'granted') return;
-
-            const options = {
-                body: body,
-                icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                vibrate: [200, 100, 200]
-            };
-
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.showNotification(title, options);
-                }).catch(() => new Notification(title, options));
-            } else {
-                new Notification(title, options);
-            }
-        }
-
-        function updateUI() {
-            const now = new Date();
-            const currentStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
-            const savedTime = localStorage.getItem('reminderTime') || "08:00";
-            document.getElementById('reminder-time').value = savedTime;
-
-            const options = { weekday: 'long', day: 'numeric', month: 'long' };
-            document.getElementById('date-display').innerText = now.toLocaleDateString('he-IL', options);
-
-            const dayIdx = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
-            const quote = quotes[dayIdx % quotes.length];
-            document.getElementById('quote-text').innerText = quote;
-
-            if (currentStr >= savedTime) {
-                document.getElementById('quote-container').classList.remove('locked-state');
-                document.getElementById('lock-overlay').classList.add('hidden');
-                document.getElementById('action-buttons').classList.remove('hidden');
-                document.getElementById('app-title').innerText = "ההשראה שלך";
-                document.getElementById('status-icon').classList.replace('bg-blue-500', 'bg-green-500');
-                
-                if (currentStr === savedTime && localStorage.getItem('lastNotifiedDate') !== now.toDateString()) {
-                    sendNotification('המשפט היומי הגיע!', quote);
-                    localStorage.setItem('lastNotifiedDate', now.toDateString());
-                }
-            } else {
-                document.getElementById('quote-container').classList.add('locked-state');
-                document.getElementById('lock-overlay').classList.remove('hidden');
-                document.getElementById('lock-message').innerText = `ההשראה תגיע בשעה ${savedTime}`;
-                document.getElementById('status-icon').classList.replace('bg-green-500', 'bg-blue-500');
-            }
-        }
-
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            toast.innerText = msg;
-            toast.style.opacity = '1';
-            setTimeout(() => toast.style.opacity = '0', 3000);
-        }
-
-        function shareQuote() {
-            const text = document.getElementById('quote-text').innerText;
-            if (navigator.share) {
-                navigator.share({ title: 'העצמה יומית', text: `"${text}"`, url: window.location.href });
-            }
-        }
-
-        window.onload = () => {
-            attemptSetup();
-            updateUI();
-        };
-        setInterval(updateUI, 15000);
-    </script>
-</body>
-</html>
+export default App;
